@@ -1,5 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from "react";
-import { View, Text, Pressable, StyleSheet, Animated } from "react-native";
+import {
+  View,
+  Text,
+  Pressable,
+  StyleSheet,
+  Animated,
+  ScrollView,
+} from "react-native";
 import {
   enqueueOutbox,
   getPianoFromCache,
@@ -54,21 +61,29 @@ export function FlashScreen({ pianoId, onBack }: Props) {
 
   const cards = useMemo(() => {
     if (!bundle) return [] as FlashcardRow[];
+    const list = Array.isArray(bundle.flashcard) ? bundle.flashcard : [];
     const today = new Date().toISOString().slice(0, 10);
-    const due = bundle.flashcard.filter(
+    const due = list.filter(
       (c) => !c.prossima_revisione || c.prossima_revisione <= today
     );
-    return due.length ? due : bundle.flashcard;
+    return due.length ? due : list;
   }, [bundle]);
 
   const card = cards[idx];
+  const fronte = String(
+    card?.fronte ?? (card as { front?: string })?.front ?? ""
+  ).trim();
+  const retro = String(
+    card?.retro ?? (card as { back?: string })?.back ?? ""
+  ).trim();
+  const faceText = flipped ? retro : fronte;
 
   async function rate(valutazione: number) {
     if (!bundle || !card) return;
     const next = aggiornaSM2(
-      card.livello,
-      card.intervallo_giorni,
-      card.fattore_facilita,
+      card.livello ?? 0,
+      card.intervallo_giorni ?? 1,
+      card.fattore_facilita ?? 2.5,
       valutazione
     );
     const prossima = addDaysISO(next.intervallo);
@@ -121,7 +136,7 @@ export function FlashScreen({ pianoId, onBack }: Props) {
           <EmptyState
             icon="🃏"
             title="Nessuna flashcard"
-            body="Questo piano non ha ancora carte in cache."
+            body="Questo piano non ha ancora carte in cache. Sincronizza di nuovo."
             actionLabel="Torna al piano"
             onAction={onBack}
           />
@@ -152,7 +167,7 @@ export function FlashScreen({ pianoId, onBack }: Props) {
   }
 
   return (
-    <Screen style={styles.container}>
+    <Screen style={styles.screen}>
       <View style={styles.header}>
         <BackLink label="Piano" onPress={onBack} />
         <View style={styles.metaRow}>
@@ -164,7 +179,8 @@ export function FlashScreen({ pianoId, onBack }: Props) {
         <ProgressBar value={idx} max={Math.max(1, cards.length)} height={6} />
       </View>
 
-      <Pressable onPress={flipCard}>
+      {/* Area carta: altezza fissa (non flex:1 dentro Pressable senza height) */}
+      <Pressable onPress={flipCard} style={styles.cardPress}>
         <Animated.View
           style={[
             styles.card,
@@ -174,7 +190,7 @@ export function FlashScreen({ pianoId, onBack }: Props) {
                 {
                   scale: flipAnim.interpolate({
                     inputRange: [0, 0.5, 1],
-                    outputRange: [1, 0.96, 1],
+                    outputRange: [1, 0.97, 1],
                   }),
                 },
               ],
@@ -186,9 +202,19 @@ export function FlashScreen({ pianoId, onBack }: Props) {
               {flipped ? "Retro" : "Fronte"}
             </Text>
           </View>
-          <Text style={styles.cardText}>
-            {flipped ? card.retro : card.fronte}
-          </Text>
+
+          <ScrollView
+            style={styles.cardScroll}
+            contentContainerStyle={styles.cardScrollContent}
+            showsVerticalScrollIndicator={false}
+            bounces={false}
+          >
+            <Text style={styles.cardText} selectable>
+              {faceText ||
+                "(Testo mancante — sincronizza di nuovo dal PC)"}
+            </Text>
+          </ScrollView>
+
           <Text style={styles.hint}>
             {flipped ? "Valuta qui sotto" : "Tocca per girare"}
           </Text>
@@ -199,7 +225,13 @@ export function FlashScreen({ pianoId, onBack }: Props) {
         <View style={styles.rates}>
           {(
             [
-              { v: 1, label: "No", sub: "di nuovo", bg: colors.roseSoft, fg: colors.rose },
+              {
+                v: 1,
+                label: "No",
+                sub: "di nuovo",
+                bg: colors.roseSoft,
+                fg: colors.rose,
+              },
               {
                 v: 2,
                 label: "Difficile",
@@ -242,8 +274,14 @@ export function FlashScreen({ pianoId, onBack }: Props) {
   );
 }
 
+const CARD_H = 340;
+
 const styles = StyleSheet.create({
-  container: { paddingHorizontal: space.xl, paddingBottom: space.xl },
+  screen: {
+    flex: 1,
+    paddingHorizontal: space.xl,
+    paddingBottom: space.xl,
+  },
   pad: { flex: 1, paddingHorizontal: space.xl },
   center: { alignItems: "center", justifyContent: "center" },
   centerPad: {
@@ -251,7 +289,7 @@ const styles = StyleSheet.create({
     justifyContent: "center",
     paddingHorizontal: 28,
   },
-  header: { marginBottom: space.lg },
+  header: { marginBottom: space.md },
   metaRow: {
     flexDirection: "row",
     justifyContent: "space-between",
@@ -265,16 +303,20 @@ const styles = StyleSheet.create({
     lineHeight: 21,
     marginTop: 8,
   },
+  cardPress: {
+    height: CARD_H,
+    width: "100%",
+  },
   card: {
-    flex: 1,
-    maxHeight: 400,
+    height: CARD_H,
+    width: "100%",
     backgroundColor: colors.bgCard,
     borderRadius: radius.xl,
     borderWidth: 1,
     borderColor: colors.borderSoft,
-    padding: 28,
-    justifyContent: "center",
-    alignItems: "center",
+    paddingTop: 48,
+    paddingBottom: 40,
+    paddingHorizontal: 22,
     ...shadow.card,
   },
   cardBack: {
@@ -283,29 +325,46 @@ const styles = StyleSheet.create({
   },
   sideBadge: {
     position: "absolute",
-    top: 16,
-    backgroundColor: colors.bgElevated,
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: radius.full,
+    top: 14,
+    alignSelf: "center",
+    left: 0,
+    right: 0,
+    alignItems: "center",
+    zIndex: 2,
   },
   sideLabel: {
+    overflow: "hidden",
     fontSize: 11,
     fontWeight: "800",
     color: colors.textMuted,
     textTransform: "uppercase",
     letterSpacing: 0.6,
+    backgroundColor: colors.bgElevated,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: radius.full,
+  },
+  cardScroll: {
+    flex: 1,
+  },
+  cardScrollContent: {
+    flexGrow: 1,
+    justifyContent: "center",
+    paddingVertical: 8,
   },
   cardText: {
-    fontSize: 21,
-    lineHeight: 32,
+    fontSize: 20,
+    lineHeight: 30,
     textAlign: "center",
     color: colors.text,
     fontWeight: "600",
   },
   hint: {
     position: "absolute",
-    bottom: 18,
+    bottom: 14,
+    left: 0,
+    right: 0,
+    textAlign: "center",
     fontSize: 12,
     color: colors.textSoft,
     fontWeight: "600",
