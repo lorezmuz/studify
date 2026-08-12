@@ -27,11 +27,13 @@ import {
 type Props = {
   pianoId: string;
   onBack: () => void;
+  /** Ripetizione libera (anche dopo aver già fatto il quiz) */
+  review?: boolean;
 };
 
 const LETTERS = ["A", "B", "C", "D", "E", "F"];
 
-export function QuizScreen({ pianoId, onBack }: Props) {
+export function QuizScreen({ pianoId, onBack, review = false }: Props) {
   const { refreshLocal } = useApp();
   const [bundle, setBundle] = useState<PianoBundle | null>(null);
   const [qi, setQi] = useState(0);
@@ -150,6 +152,11 @@ export function QuizScreen({ pianoId, onBack }: Props) {
     <Screen>
       <ScrollView contentContainerStyle={styles.pad} showsVerticalScrollIndicator={false}>
         <BackLink label="Piano" onPress={onBack} />
+        {review ? (
+          <Text style={styles.reviewBanner}>
+            Modalità ripasso — puoi rifare il quiz quando vuoi
+          </Text>
+        ) : null}
 
         <View style={styles.topMeta}>
           <Text style={styles.progress}>
@@ -189,6 +196,17 @@ export function QuizScreen({ pianoId, onBack }: Props) {
 
 const styles = StyleSheet.create({
   pad: { paddingHorizontal: space.xl, paddingBottom: 48 },
+  reviewBanner: {
+    fontSize: 13,
+    fontWeight: "700",
+    color: colors.emeraldDeep,
+    backgroundColor: colors.emeraldSoft,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: radius.md,
+    marginBottom: 12,
+    overflow: "hidden",
+  },
   center: { alignItems: "center", justifyContent: "center" },
   centerPad: {
     alignItems: "center",

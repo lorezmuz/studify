@@ -19,15 +19,20 @@ type Route =
   | { name: "pair"; initialUrl?: string }
   | { name: "scan" }
   | { name: "piano"; id: string }
-  | { name: "flash"; id: string }
-  | { name: "quiz"; id: string }
-  | { name: "studio"; id: string; sectionIndex: number; nodeId?: string };
+  | { name: "flash"; id: string; reviewAll?: boolean }
+  | { name: "quiz"; id: string; review?: boolean }
+  | {
+      name: "studio";
+      id: string;
+      sectionIndex: number;
+      nodeId?: string;
+      reviewOnly?: boolean;
+    };
 
 function routeFromUrl(url: string | null): Route | null {
   if (!url) return null;
   const base = parsePairUrl(url);
   if (base) return { name: "pair", initialUrl: base };
-  // studify://pair?baseUrl=...
   if (url.includes("pair") || url.includes("baseUrl")) {
     const parsed = parsePairUrl(url);
     if (parsed) return { name: "pair", initialUrl: parsed };
@@ -88,14 +93,27 @@ export default function App() {
           <PianoScreen
             pianoId={route.id}
             onBack={() => setRoute({ name: "home" })}
-            onFlash={() => setRoute({ name: "flash", id: route.id })}
-            onQuiz={() => setRoute({ name: "quiz", id: route.id })}
-            onStudio={(sectionIndex, nodeId) =>
+            onFlash={(opts) =>
+              setRoute({
+                name: "flash",
+                id: route.id,
+                reviewAll: opts?.reviewAll ?? true,
+              })
+            }
+            onQuiz={(opts) =>
+              setRoute({
+                name: "quiz",
+                id: route.id,
+                review: opts?.review ?? false,
+              })
+            }
+            onStudio={(sectionIndex, opts) =>
               setRoute({
                 name: "studio",
                 id: route.id,
                 sectionIndex,
-                nodeId,
+                nodeId: opts?.nodeId,
+                reviewOnly: opts?.reviewOnly,
               })
             }
           />
@@ -103,12 +121,14 @@ export default function App() {
         {route.name === "flash" && (
           <FlashScreen
             pianoId={route.id}
+            reviewAll={route.reviewAll !== false}
             onBack={() => setRoute({ name: "piano", id: route.id })}
           />
         )}
         {route.name === "quiz" && (
           <QuizScreen
             pianoId={route.id}
+            review={!!route.review}
             onBack={() => setRoute({ name: "piano", id: route.id })}
           />
         )}
@@ -117,6 +137,7 @@ export default function App() {
             pianoId={route.id}
             sectionIndex={route.sectionIndex}
             nodeId={route.nodeId}
+            reviewOnly={!!route.reviewOnly}
             onBack={() => setRoute({ name: "piano", id: route.id })}
           />
         )}

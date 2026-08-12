@@ -199,6 +199,7 @@ export function StudyPath({
                 disabled={locked}
                 onPress={() => {
                   if (locked) return;
+                  // done e current sono entrambi apribili (ripasso)
                   void playTap();
                   onSelect(node);
                 }}

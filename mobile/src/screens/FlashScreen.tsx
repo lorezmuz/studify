@@ -33,9 +33,11 @@ import {
 type Props = {
   pianoId: string;
   onBack: () => void;
+  /** Se true (default) mostra tutte le carte, non solo quelle in scadenza SM-2 */
+  reviewAll?: boolean;
 };
 
-export function FlashScreen({ pianoId, onBack }: Props) {
+export function FlashScreen({ pianoId, onBack, reviewAll = true }: Props) {
   const { refreshLocal } = useApp();
   const [bundle, setBundle] = useState<PianoBundle | null>(null);
   const [idx, setIdx] = useState(0);
@@ -62,12 +64,13 @@ export function FlashScreen({ pianoId, onBack }: Props) {
   const cards = useMemo(() => {
     if (!bundle) return [] as FlashcardRow[];
     const list = Array.isArray(bundle.flashcard) ? bundle.flashcard : [];
+    if (reviewAll) return list;
     const today = new Date().toISOString().slice(0, 10);
     const due = list.filter(
       (c) => !c.prossima_revisione || c.prossima_revisione <= today
     );
     return due.length ? due : list;
-  }, [bundle]);
+  }, [bundle, reviewAll]);
 
   const card = cards[idx];
   const fronte = String(
@@ -173,6 +176,7 @@ export function FlashScreen({ pianoId, onBack }: Props) {
         <View style={styles.metaRow}>
           <Text style={styles.meta}>
             {idx + 1} / {cards.length}
+            {reviewAll ? " · ripasso" : ""}
           </Text>
           <Text style={styles.metaSoft}>fatte {done}</Text>
         </View>

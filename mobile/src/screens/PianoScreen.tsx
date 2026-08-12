@@ -29,9 +29,12 @@ import {
 type Props = {
   pianoId: string;
   onBack: () => void;
-  onFlash: () => void;
-  onQuiz: () => void;
-  onStudio: (sectionIndex: number, nodeId?: string) => void;
+  onFlash: (opts?: { reviewAll?: boolean }) => void;
+  onQuiz: (opts?: { review?: boolean }) => void;
+  onStudio: (
+    sectionIndex: number,
+    opts?: { nodeId?: string; reviewOnly?: boolean }
+  ) => void;
 };
 
 export function PianoScreen({
@@ -52,31 +55,60 @@ export function PianoScreen({
 
   useFocusEffect(load);
 
-  async function completeNode(node: RoadmapNode) {
-    if (!bundle || node.status === "locked" || node.status === "done") return;
+  /** Apre il contenuto di una tappa (anche se già fatta). */
+  function openNodeContent(node: RoadmapNode, reviewOnly: boolean) {
+    void playTap();
+    if (node.type === "read" && typeof node.sectionIndex === "number") {
+      onStudio(node.sectionIndex, {
+        nodeId: reviewOnly ? undefined : node.id,
+        reviewOnly,
+      });
+      return;
+    }
+    if (node.type === "flashcards" || node.type === "review") {
+      onFlash({ reviewAll: true });
+      return;
+    }
+    if (node.type === "quiz") {
+      onQuiz({ review: reviewOnly });
+      return;
+    }
+    if (node.type === "chest") {
+      // baule: se già fatto, solo feedback; se current, completa sotto
+      if (reviewOnly) void playChest();
+    }
+  }
+
+  async function onSelectNode(node: RoadmapNode) {
+    if (!bundle || node.status === "locked") return;
     if (busyNode) return;
+
+    // Già fatta → riapri in sola lettura / ripasso (niente XP extra)
+    if (node.status === "done") {
+      openNodeContent(node, true);
+      return;
+    }
+
+    // Current → apri e, se chest/review “istantanei”, completa
     setBusyNode(node.id);
 
     if (node.type === "read" && typeof node.sectionIndex === "number") {
-      void playTap();
-      onStudio(node.sectionIndex, node.id);
+      openNodeContent(node, false);
       setBusyNode(null);
       return;
     }
     if (node.type === "flashcards") {
-      void playTap();
-      onFlash();
+      openNodeContent(node, false);
       setBusyNode(null);
       return;
     }
     if (node.type === "quiz") {
-      void playTap();
-      onQuiz();
+      openNodeContent(node, false);
       setBusyNode(null);
       return;
     }
 
-    // review / chest → marca done
+    // review / chest → marca done (prima volta)
     if (node.type === "chest") void playChest();
     else void playComplete();
 
@@ -95,9 +127,7 @@ export function PianoScreen({
     };
     let foundCurrent = false;
     updated.roadmap = updated.roadmap.map((n) => {
-      if (n.status === "done" || n.id === node.id) {
-        return n.id === node.id ? { ...n, status: "done" as const } : n;
-      }
+      if (n.status === "done") return n;
       if (!foundCurrent) {
         foundCurrent = true;
         return { ...n, status: "current" as const };
@@ -155,30 +185,36 @@ export function PianoScreen({
           </View>
         </View>
 
+        <Text style={styles.hintReopen}>
+          Tocca anche le tappe ✓ già fatte per ripassarle.
+        </Text>
+
         <View style={styles.actions}>
           <PressScale
             onPress={() => {
               void playTap();
-              onFlash();
+              onFlash({ reviewAll: true });
             }}
             style={[styles.actionBtn, { backgroundColor: colors.violetSoft }]}
           >
             <Text style={styles.actionEmoji}>🃏</Text>
             <Text style={styles.actionBtnText}>Flashcard</Text>
             <Text style={styles.actionSub}>
-              {bundle.flashcard.length} carte
+              {bundle.flashcard.length} carte · ripasso
             </Text>
           </PressScale>
           <PressScale
             onPress={() => {
               void playTap();
-              onQuiz();
+              onQuiz({ review: true });
             }}
             style={[styles.actionBtn, { backgroundColor: colors.skySoft }]}
           >
             <Text style={styles.actionEmoji}>✅</Text>
             <Text style={styles.actionBtnText}>Quiz</Text>
-            <Text style={styles.actionSub}>{bundle.quiz.length} set</Text>
+            <Text style={styles.actionSub}>
+              {bundle.quiz.length} set · ripeti
+            </Text>
           </PressScale>
         </View>
 
@@ -187,18 +223,18 @@ export function PianoScreen({
           unitTitle={p.materia}
           unitSubtitle="Il tuo percorso"
           xp={xp}
-          onSelect={(node) => void completeNode(node)}
+          onSelect={(node) => void onSelectNode(node)}
         />
 
         {bundle.sections?.length > 0 && (
           <>
-            <SectionLabel>Sezioni studio</SectionLabel>
+            <SectionLabel>Sezioni studio (sempre apribili)</SectionLabel>
             {bundle.sections.map((s, idx) => (
               <PressScale
                 key={idx}
                 onPress={() => {
                   void playTap();
-                  onStudio(idx);
+                  onStudio(idx, { reviewOnly: true });
                 }}
                 style={styles.sectionCard}
               >
@@ -227,7 +263,7 @@ const styles = StyleSheet.create({
     flexDirection: "row",
     alignItems: "flex-start",
     gap: 10,
-    marginBottom: 14,
+    marginBottom: 8,
   },
   argomenti: {
     flex: 1,
@@ -244,6 +280,12 @@ const styles = StyleSheet.create({
   timeUrgent: { backgroundColor: colors.amberSoft },
   timePast: { backgroundColor: colors.bgElevated },
   timeText: { fontSize: 11, fontWeight: "700", color: colors.text },
+  hintReopen: {
+    fontSize: 12,
+    color: colors.emeraldDeep,
+    fontWeight: "600",
+    marginBottom: 12,
+  },
   actions: { flexDirection: "row", gap: 10, marginBottom: 18 },
   actionBtn: {
     flex: 1,

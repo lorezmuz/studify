@@ -16,6 +16,8 @@ type Props = {
   pianoId: string;
   sectionIndex: number;
   nodeId?: string;
+  /** Solo lettura (tappa già fatta o sezione aperta dalla lista) */
+  reviewOnly?: boolean;
   onBack: () => void;
 };
 
@@ -23,6 +25,7 @@ export function StudioScreen({
   pianoId,
   sectionIndex,
   nodeId,
+  reviewOnly = false,
   onBack,
 }: Props) {
   const { refreshLocal } = useApp();
@@ -30,8 +33,17 @@ export function StudioScreen({
   const [done, setDone] = useState(false);
 
   useEffect(() => {
-    void getPianoFromCache(pianoId).then(setBundle);
-  }, [pianoId]);
+    void getPianoFromCache(pianoId).then((b) => {
+      setBundle(b);
+      if (
+        b &&
+        nodeId &&
+        b.progress?.completedIds?.includes(nodeId)
+      ) {
+        setDone(true);
+      }
+    });
+  }, [pianoId, nodeId]);
 
   const section = bundle?.sections?.[sectionIndex];
   const body =
@@ -39,9 +51,14 @@ export function StudioScreen({
     bundle?.piano.riassunto ||
     "_Contenuto non disponibile offline._";
   const title = section?.title || "Studio";
+  const alreadyDone =
+    reviewOnly ||
+    done ||
+    (!!nodeId && !!bundle?.progress?.completedIds?.includes(nodeId));
+  const canComplete = !!nodeId && !reviewOnly && !alreadyDone;
 
   async function markDone() {
-    if (!bundle || !nodeId) {
+    if (!bundle || !nodeId || reviewOnly || alreadyDone) {
       onBack();
       return;
     }
@@ -84,23 +101,38 @@ export function StudioScreen({
     <Screen>
       <View style={styles.header}>
         <BackLink label="Piano" onPress={onBack} />
-        <Text style={styles.kicker}>Studio</Text>
+        <Text style={styles.kicker}>
+          {alreadyDone ? "Ripasso" : "Studio"}
+        </Text>
         <Text style={styles.title} numberOfLines={2}>
           {title}
         </Text>
+        {alreadyDone ? (
+          <Text style={styles.reviewHint}>
+            Già completata — puoi rileggerla quando vuoi.
+          </Text>
+        ) : null}
       </View>
 
-      <View style={[styles.md, nodeId ? { marginBottom: 96 } : null]}>
+      <View
+        style={[
+          styles.md,
+          canComplete || alreadyDone ? { marginBottom: 96 } : null,
+        ]}
+      >
         <MarkdownView markdown={body} title={title} />
       </View>
 
-      {nodeId ? (
+      {canComplete ? (
         <View style={styles.footer}>
           <PrimaryButton
-            label={done ? "Completato ✓" : "Segna completato"}
+            label="Segna completato"
             onPress={() => void markDone().then(onBack)}
-            disabled={done}
           />
+        </View>
+      ) : alreadyDone ? (
+        <View style={styles.footer}>
+          <PrimaryButton label="Torna al percorso" onPress={onBack} />
         </View>
       ) : null}
     </Screen>
@@ -126,6 +158,12 @@ const styles = StyleSheet.create({
     color: colors.text,
     letterSpacing: -0.4,
     marginBottom: 8,
+  },
+  reviewHint: {
+    fontSize: 13,
+    color: colors.textMuted,
+    marginBottom: 8,
+    fontWeight: "600",
   },
   md: { flex: 1 },
   footer: {
