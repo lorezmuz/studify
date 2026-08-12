@@ -17,6 +17,12 @@ import {
   ProgressBar,
   Screen,
 } from "../components/ui";
+import {
+  playComplete,
+  playCorrect,
+  playError,
+  playTap,
+} from "../lib/sounds";
 
 type Props = {
   pianoId: string;
@@ -53,6 +59,9 @@ export function QuizScreen({ pianoId, onBack }: Props) {
   function pick(optionIndex: number) {
     if (!current || finished || picked !== null) return;
     setPicked(optionIndex);
+    const correct = optionIndex === current.risposta_corretta;
+    if (correct) void playCorrect();
+    else void playError();
     const next = [...answers];
     next[qi] = optionIndex;
     setAnswers(next);
@@ -63,7 +72,7 @@ export function QuizScreen({ pianoId, onBack }: Props) {
       } else {
         setQi(qi + 1);
       }
-    }, 280);
+    }, 380);
   }
 
   async function finish(risposte: number[]) {
@@ -77,6 +86,7 @@ export function QuizScreen({ pianoId, onBack }: Props) {
     );
     setScore(punteggio);
     setFinished(true);
+    void playComplete();
     await enqueueOutbox({
       type: "quiz_result",
       quizId: quiz.id,
@@ -124,7 +134,13 @@ export function QuizScreen({ pianoId, onBack }: Props) {
           Risultato salvato in locale · si invia al PC al prossimo sync.
         </Text>
         <View style={{ width: "100%", marginTop: 20 }}>
-          <PrimaryButton label="Torna al piano" onPress={onBack} />
+          <PrimaryButton
+            label="Torna al piano"
+            onPress={() => {
+              void playTap();
+              onBack();
+            }}
+          />
         </View>
       </Screen>
     );

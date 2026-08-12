@@ -1,5 +1,5 @@
-import React, { useEffect, useMemo, useState } from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { View, Text, Pressable, StyleSheet, Animated } from "react-native";
 import {
   enqueueOutbox,
   getPianoFromCache,
@@ -15,6 +15,13 @@ import {
   ProgressBar,
   Screen,
 } from "../components/ui";
+import {
+  playComplete,
+  playError,
+  playFlip,
+  playTap,
+  playXp,
+} from "../lib/sounds";
 
 type Props = {
   pianoId: string;
@@ -28,10 +35,22 @@ export function FlashScreen({ pianoId, onBack }: Props) {
   const [flipped, setFlipped] = useState(false);
   const [done, setDone] = useState(0);
   const [finished, setFinished] = useState(false);
+  const flipAnim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
     void getPianoFromCache(pianoId).then(setBundle);
   }, [pianoId]);
+
+  function flipCard() {
+    void playFlip();
+    Animated.spring(flipAnim, {
+      toValue: flipped ? 0 : 1,
+      useNativeDriver: true,
+      friction: 7,
+      tension: 80,
+    }).start();
+    setFlipped((f) => !f);
+  }
 
   const cards = useMemo(() => {
     if (!bundle) return [] as FlashcardRow[];
@@ -74,8 +93,12 @@ export function FlashScreen({ pianoId, onBack }: Props) {
     setBundle(updated);
     setDone((d) => d + 1);
     setFlipped(false);
+    flipAnim.setValue(0);
+    if (valutazione >= 3) void playXp();
+    else void playError();
     if (idx + 1 >= cards.length) {
       setFinished(true);
+      void playComplete();
       await refreshLocal();
     } else {
       setIdx(idx + 1);
@@ -115,7 +138,13 @@ export function FlashScreen({ pianoId, onBack }: Props) {
         <Text style={styles.muted}>
           Hai ripassato {done} carte. I progressi SM-2 andranno al PC al sync.
         </Text>
-        <Pressable style={styles.doneBtn} onPress={onBack}>
+        <Pressable
+          style={styles.doneBtn}
+          onPress={() => {
+            void playTap();
+            onBack();
+          }}
+        >
           <Text style={styles.doneBtnText}>Torna al piano</Text>
         </Pressable>
       </Screen>
@@ -135,19 +164,35 @@ export function FlashScreen({ pianoId, onBack }: Props) {
         <ProgressBar value={idx} max={Math.max(1, cards.length)} height={6} />
       </View>
 
-      <Pressable
-        style={[styles.card, flipped && styles.cardBack]}
-        onPress={() => setFlipped((f) => !f)}
-      >
-        <View style={styles.sideBadge}>
-          <Text style={styles.sideLabel}>{flipped ? "Retro" : "Fronte"}</Text>
-        </View>
-        <Text style={styles.cardText}>
-          {flipped ? card.retro : card.fronte}
-        </Text>
-        <Text style={styles.hint}>
-          {flipped ? "Valuta qui sotto" : "Tocca per girare"}
-        </Text>
+      <Pressable onPress={flipCard}>
+        <Animated.View
+          style={[
+            styles.card,
+            flipped && styles.cardBack,
+            {
+              transform: [
+                {
+                  scale: flipAnim.interpolate({
+                    inputRange: [0, 0.5, 1],
+                    outputRange: [1, 0.96, 1],
+                  }),
+                },
+              ],
+            },
+          ]}
+        >
+          <View style={styles.sideBadge}>
+            <Text style={styles.sideLabel}>
+              {flipped ? "Retro" : "Fronte"}
+            </Text>
+          </View>
+          <Text style={styles.cardText}>
+            {flipped ? card.retro : card.fronte}
+          </Text>
+          <Text style={styles.hint}>
+            {flipped ? "Valuta qui sotto" : "Tocca per girare"}
+          </Text>
+        </Animated.View>
       </Pressable>
 
       {flipped ? (

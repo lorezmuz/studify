@@ -10,6 +10,7 @@ import { colors, space } from "../theme";
 import { useApp } from "../context/AppContext";
 import { MarkdownView } from "../components/MarkdownView";
 import { BackLink, PrimaryButton, Screen } from "../components/ui";
+import { playComplete, playXp } from "../lib/sounds";
 
 type Props = {
   pianoId: string;
@@ -74,6 +75,8 @@ export function StudioScreen({
       nodeId,
     });
     setDone(true);
+    void playComplete();
+    void playXp();
     await refreshLocal();
   }
 

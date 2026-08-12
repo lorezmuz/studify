@@ -20,6 +20,8 @@ import {
   Screen,
   StatusPill,
 } from "../components/ui";
+import { PressScale } from "../components/PressScale";
+import { playTap } from "../lib/sounds";
 
 type Props = {
   onOpenPiano: (id: string) => void;
@@ -163,13 +165,12 @@ function PianoCard({
   const letter = (p.materia || "?").trim().charAt(0).toUpperCase();
 
   return (
-    <Pressable
-      onPress={onPress}
-      style={({ pressed }) => [
-        styles.card,
-        shadow.card,
-        pressed && { opacity: 0.94, transform: [{ scale: 0.99 }] },
-      ]}
+    <PressScale
+      onPress={() => {
+        void playTap();
+        onPress();
+      }}
+      style={[styles.card, shadow.card]}
     >
       <View style={styles.cardTop}>
         <View style={styles.avatar}>
@@ -209,7 +210,7 @@ function PianoCard({
           {item.quiz?.length ? ` · ${item.quiz.length} quiz` : ""}
         </Text>
       </View>
-    </Pressable>
+    </PressScale>
   );
 }
 
