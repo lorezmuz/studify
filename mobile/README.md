@@ -1,11 +1,11 @@
 # Studify Mobile
 
-App **Expo (React Native)** per Android e iOS: usa il PC come backend in LAN e tiene i piani **offline**.
+App **Expo SDK 54** (React Native 0.81) per Android e iOS: usa il PC come backend in LAN e tiene i piani **offline**.
 
 ## Requisiti
 
 - Node 20+
-- [Expo Go](https://expo.dev/go) sul telefono (dev)
+- [Expo Go](https://expo.dev/go) compatibile con **SDK 54** sul telefono
 - Backend Studify avviato sul PC (`npm run dev -- -p 3005` o Docker) sulla **stessa Wi‑Fi**
 
 ## Avvio
