@@ -21,7 +21,9 @@
     },
     "android": {
       "package": "com.studify.app",
-      "permissions": ["CAMERA"],
+      "permissions": [
+        "CAMERA"
+      ],
       "adaptiveIcon": {
         "backgroundColor": "#059669",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -39,7 +41,8 @@
           "cameraPermission": "Studify usa la fotocamera per scansionare il QR di collegamento al PC.",
           "barcodeScannerEnabled": true
         }
-      ]
+      ],
+      "expo-audio"
     ]
   }
 }

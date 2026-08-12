@@ -1,31 +1,35 @@
 /**
- * Suoni UI + haptic (fail-safe: mai crashare l'app).
- * WAV sintetici piccoli, base64 senza spread di array enormi.
+ * Suoni UI (WAV sintetico) + haptic — fail-safe, non crasha l'app.
+ * Usa expo-audio (SDK 54) al posto di expo-av deprecato.
  */
-import { Audio } from "expo-av";
+import { createAudioPlayer, setAudioModeAsync } from "expo-audio";
 import * as Haptics from "expo-haptics";
 
 let audioReady = false;
-const soundCache = new Map<string, Audio.Sound>();
 
 async function ensureAudio() {
   if (audioReady) return;
   try {
-    await Audio.setAudioModeAsync({
-      playsInSilentModeIOS: true,
-      shouldDuckAndroid: true,
-      playThroughEarpieceAndroid: false,
+    await setAudioModeAsync({
+      playsInSilentMode: true,
+      shouldPlayInBackground: false,
+      interruptionMode: "duckOthers",
     });
     audioReady = true;
   } catch {
-    /* ignore */
+    try {
+      // API più permissiva se le option keys differiscono
+      await setAudioModeAsync({ playsInSilentMode: true } as never);
+      audioReady = true;
+    } catch {
+      /* ignore */
+    }
   }
 }
 
 const B64 =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-/** Base64 da Uint8Array senza spread (evita stack overflow). */
 function bytesToBase64(bytes: Uint8Array): string {
   let out = "";
   const len = bytes.length;
@@ -42,7 +46,6 @@ function bytesToBase64(bytes: Uint8Array): string {
   return out;
 }
 
-/** WAV mono 16-bit 16kHz — durata max ~0.35s */
 function toneWavBase64(
   freqs: number[],
   durationSec: number,
@@ -58,7 +61,7 @@ function toneWavBase64(
     for (let f = 0; f < freqs.length; f++) {
       s += Math.sin(2 * Math.PI * freqs[f] * t);
     }
-    s = (s / freqs.length) * env * volume;
+    s = (s / Math.max(1, freqs.length)) * env * volume;
     pcm[i] = (s * 32767) | 0;
   }
 
@@ -66,7 +69,6 @@ function toneWavBase64(
   const buf = new ArrayBuffer(44 + dataBytes);
   const view = new DataView(buf);
   const u8 = new Uint8Array(buf);
-
   const w = (off: number, str: string) => {
     for (let i = 0; i < str.length; i++) u8[off + i] = str.charCodeAt(i);
   };
@@ -75,8 +77,8 @@ function toneWavBase64(
   w(8, "WAVE");
   w(12, "fmt ");
   view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true); // PCM
-  view.setUint16(22, 1, true); // mono
+  view.setUint16(20, 1, true);
+  view.setUint16(22, 1, true);
   view.setUint32(24, sampleRate, true);
   view.setUint32(28, sampleRate * 2, true);
   view.setUint16(32, 2, true);
@@ -84,7 +86,6 @@ function toneWavBase64(
   w(36, "data");
   view.setUint32(40, dataBytes, true);
   u8.set(new Uint8Array(pcm.buffer), 44);
-
   return bytesToBase64(u8);
 }
 
@@ -97,7 +98,7 @@ function wavUri(key: string, factory: () => string): string {
       uri = `data:audio/wav;base64,${factory()}`;
       uriCache.set(key, uri);
     } catch {
-      uri = "";
+      return "";
     }
   }
   return uri;
@@ -107,33 +108,17 @@ async function playUri(uri: string) {
   if (!uri) return;
   try {
     await ensureAudio();
-    // riusa un sound se già in cache e scaricato
-    let sound = soundCache.get(uri);
-    if (sound) {
+    const player = createAudioPlayer({ uri });
+    player.volume = 0.85;
+    player.play();
+    // rilascia dopo un po'
+    setTimeout(() => {
       try {
-        await sound.replayAsync();
-        return;
+        player.remove();
       } catch {
-        try {
-          await sound.unloadAsync();
-        } catch {
-          /* */
-        }
-        soundCache.delete(uri);
+        /* */
       }
-    }
-    const created = await Audio.Sound.createAsync(
-      { uri },
-      { shouldPlay: true, volume: 0.8 }
-    );
-    sound = created.sound;
-    soundCache.set(uri, sound);
-    sound.setOnPlaybackStatusUpdate((st) => {
-      if (!st.isLoaded) return;
-      if (st.didJustFinish) {
-        // tieni in cache per replay, non unload
-      }
-    });
+    }, 1500);
   } catch {
     /* audio non critico */
   }
@@ -157,15 +142,13 @@ async function hap(
       await Haptics.selectionAsync();
     }
   } catch {
-    /* no haptics device */
+    /* */
   }
 }
 
 export async function playTap() {
   void hap("light");
-  await playUri(
-    wavUri("tap", () => toneWavBase64([520], 0.06, 0.2))
-  );
+  await playUri(wavUri("tap", () => toneWavBase64([520], 0.06, 0.2)));
 }
 
 export async function playUnlock() {
@@ -184,16 +167,12 @@ export async function playComplete() {
 
 export async function playXp() {
   void hap("medium");
-  await playUri(
-    wavUri("xp", () => toneWavBase64([880, 1175], 0.14, 0.16))
-  );
+  await playUri(wavUri("xp", () => toneWavBase64([880, 1175], 0.14, 0.16)));
 }
 
 export async function playError() {
   void hap("error");
-  await playUri(
-    wavUri("error", () => toneWavBase64([220, 180], 0.16, 0.18))
-  );
+  await playUri(wavUri("error", () => toneWavBase64([220, 180], 0.16, 0.18)));
 }
 
 export async function playChest() {
@@ -205,14 +184,10 @@ export async function playChest() {
 
 export async function playFlip() {
   void hap("select");
-  await playUri(
-    wavUri("flip", () => toneWavBase64([640, 480], 0.08, 0.14))
-  );
+  await playUri(wavUri("flip", () => toneWavBase64([640, 480], 0.08, 0.14)));
 }
 
 export async function playCorrect() {
   void hap("success");
-  await playUri(
-    wavUri("ok", () => toneWavBase64([660, 880], 0.12, 0.18))
-  );
+  await playUri(wavUri("ok", () => toneWavBase64([660, 880], 0.12, 0.18)));
 }
