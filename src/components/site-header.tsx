@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { House, Plus, Student } from "@phosphor-icons/react";
+import { DeviceMobile, House, Plus, Student } from "@phosphor-icons/react";
 import { Button } from "./ui/button";
 
 export function SiteHeader() {
@@ -25,6 +25,13 @@ export function SiteHeader() {
             title="Home"
           >
             <House weight="fill" className="h-5 w-5" />
+          </Link>
+          <Link
+            href="/collega"
+            className="rounded-full p-2 text-zinc-500 hover:bg-zinc-100 hover:text-emerald-700"
+            title="Collega telefono"
+          >
+            <DeviceMobile weight="fill" className="h-5 w-5" />
           </Link>
           <Link href="/nuovo">
             <Button size="sm" className="rounded-full bg-emerald-500 hover:bg-emerald-400">

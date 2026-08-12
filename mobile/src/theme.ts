@@ -1,0 +1,16 @@
+export const colors = {
+  bg: "#fafafa",
+  bgCard: "#ffffff",
+  text: "#18181b",
+  textMuted: "#71717a",
+  border: "#e4e4e7",
+  emerald: "#059669",
+  emeraldSoft: "#d1fae5",
+  amber: "#d97706",
+  amberSoft: "#fef3c7",
+  rose: "#e11d48",
+  roseSoft: "#ffe4e6",
+  locked: "#a1a1aa",
+  current: "#059669",
+  done: "#10b981",
+};

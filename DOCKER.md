@@ -4,6 +4,7 @@
 
 - Docker Desktop (Windows/Mac) o Docker Engine + Compose (Linux)
 - Porte libere: **3005**
+- Per l’**app mobile** sulla stessa Wi‑Fi: firewall Windows deve consentire **TCP 3005** (rete privata). Pagina pairing: `http://IP_PC:3005/collega`
 
 ## Avvio rapido
 

@@ -146,10 +146,23 @@ Gli ID piano sono **nanoid** pubblici (`/piani/xK2p9aB`).
 
 ---
 
-## App mobile (piano)
+## App mobile
 
-> Stato: **solo progettata** — non ancora implementata.  
-> Decisioni confermate sotto.
+> Stato: **implementata (v1)** in `mobile/` — Expo React Native, cache offline + sync LAN.
+
+### Avvio app
+
+```bash
+cd mobile
+npm install
+npx expo start
+```
+
+Apri con **Expo Go** (Android/iOS). Pairing: sul PC apri **[/collega](http://localhost:3005/collega)**, copia l’URL LAN nell’app.
+
+Dettagli: **[mobile/README.md](./mobile/README.md)**.
+
+### Piano prodotto (riferimento)
 
 ### Obiettivo
 
