@@ -90,20 +90,35 @@ export function parsePairUrl(input: string): string | null {
   const s = input.trim();
   if (!s) return null;
 
-  if (s.startsWith("studify://")) {
+  // studify://pair?baseUrl=http%3A%2F%2F...
+  if (s.startsWith("studify://") || s.includes("studify://")) {
     try {
-      const u = new URL(s.replace("studify://", "https://studify.local/"));
+      const raw = s.includes("studify://")
+        ? s.slice(s.indexOf("studify://"))
+        : s;
+      const u = new URL(raw.replace("studify://", "https://studify.local/"));
       const base = u.searchParams.get("baseUrl");
-      if (base) return normalizeBase(base);
+      if (base) return normalizeBase(decodeURIComponent(base));
     } catch {
       /* fall through */
     }
   }
 
+  // QR a volte è solo l'URL http
   if (/^https?:\/\//i.test(s)) return normalizeBase(s);
   if (/^\d+\.\d+\.\d+\.\d+(:\d+)?$/.test(s)) {
     return normalizeBase(`http://${s}`);
   }
   if (/^[\w.-]+:\d+$/.test(s)) return normalizeBase(`http://${s}`);
+
+  // query string isolata
+  const m = s.match(/baseUrl=([^&\s]+)/i);
+  if (m?.[1]) {
+    try {
+      return normalizeBase(decodeURIComponent(m[1]));
+    } catch {
+      return normalizeBase(m[1]);
+    }
+  }
   return null;
 }

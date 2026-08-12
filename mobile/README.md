@@ -21,8 +21,10 @@ Scansiona il QR con Expo Go.
 ## Pairing
 
 1. Sul PC apri **http://localhost:3005/collega** (o `http://IP_PC:3005/collega`)
-2. Copia l’URL LAN mostrato
-3. Nell’app: **Collega al PC** / Impostazioni → incolla → **Connetti e sincronizza**
+2. Nell’app: **Collega al PC** → **Scansiona QR** (oppure incolla l’URL)
+3. Sync automatico dei piani
+
+Supportati anche deep link `studify://pair?baseUrl=…`.
 
 Firewall Windows: porta **TCP 3005** rete privata.
 
@@ -31,11 +33,14 @@ Firewall Windows: porta **TCP 3005** rete privata.
 | Feature | Online | Offline |
 |---------|--------|---------|
 | Lista piani | sync da PC | cache |
-| Studio sezioni | sì | sì |
+| Studio sezioni (MD + KaTeX) | sì | sì* |
 | Roadmap / complete | sì | sì + outbox |
 | Flashcard SM-2 | sì | sì + outbox |
 | Quiz | sì | sì + outbox |
+| Scanner QR pairing | sì | — |
 | Genera piano AI | no (solo web/PC) | no |
+
+\* KaTeX/marked via CDN la prima volta (poi cache WebView).
 
 ## API usate
 

@@ -1,11 +1,5 @@
 import React, { useEffect, useState } from "react";
-import {
-  View,
-  Text,
-  ScrollView,
-  Pressable,
-  StyleSheet,
-} from "react-native";
+import { View, Text, Pressable, StyleSheet } from "react-native";
 import {
   enqueueOutbox,
   getPianoFromCache,
@@ -14,6 +8,7 @@ import {
 import type { PianoBundle } from "../lib/types";
 import { colors } from "../theme";
 import { useApp } from "../context/AppContext";
+import { MarkdownView } from "../components/MarkdownView";
 
 type Props = {
   pianoId: string;
@@ -37,6 +32,11 @@ export function StudioScreen({
   }, [pianoId]);
 
   const section = bundle?.sections?.[sectionIndex];
+  const body =
+    section?.body ||
+    bundle?.piano.riassunto ||
+    "_Contenuto non disponibile offline._";
+  const title = section?.title || "Studio";
 
   async function markDone() {
     if (!bundle || !nodeId) {
@@ -49,20 +49,22 @@ export function StudioScreen({
       xp: (bundle.progress.xp || 0) + 20,
     };
     let foundCurrent = false;
-    const roadmap = bundle.roadmap.map((n) => {
-      if (n.id === nodeId) return { ...n, status: "done" as const };
-      if (n.status === "done" || n.id === nodeId) {
-        return n.id === nodeId ? { ...n, status: "done" as const } : n;
-      }
-      return n;
-    }).map((n) => {
-      if (n.status === "done") return n;
-      if (!foundCurrent) {
-        foundCurrent = true;
-        return { ...n, status: "current" as const };
-      }
-      return { ...n, status: n.status === "current" ? ("locked" as const) : n.status };
-    });
+    const roadmap = bundle.roadmap
+      .map((n) =>
+        n.id === nodeId ? { ...n, status: "done" as const } : n
+      )
+      .map((n) => {
+        if (n.status === "done") return n;
+        if (!foundCurrent) {
+          foundCurrent = true;
+          return { ...n, status: "current" as const };
+        }
+        return {
+          ...n,
+          status:
+            n.status === "current" ? ("locked" as const) : n.status,
+        };
+      });
 
     const updated: PianoBundle = { ...bundle, progress, roadmap };
     await upsertPianoInCache(updated);
@@ -82,16 +84,14 @@ export function StudioScreen({
           <Text style={styles.backText}>← Indietro</Text>
         </Pressable>
         <Text style={styles.title} numberOfLines={2}>
-          {section?.title || "Studio"}
+          {title}
         </Text>
       </View>
-      <ScrollView contentContainerStyle={styles.pad}>
-        <Text style={styles.body}>
-          {section?.body ||
-            bundle?.piano.riassunto ||
-            "Contenuto non disponibile offline."}
-        </Text>
-      </ScrollView>
+
+      <View style={styles.md}>
+        <MarkdownView markdown={body} title={title} />
+      </View>
+
       {nodeId ? (
         <View style={styles.footer}>
           <Pressable
@@ -118,12 +118,7 @@ const styles = StyleSheet.create({
     fontWeight: "700",
     color: colors.text,
   },
-  pad: { padding: 20, paddingBottom: 100 },
-  body: {
-    fontSize: 16,
-    lineHeight: 26,
-    color: colors.text,
-  },
+  md: { flex: 1, marginBottom: 88 },
   footer: {
     position: "absolute",
     left: 0,

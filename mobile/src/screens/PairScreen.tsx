@@ -14,16 +14,50 @@ import { colors } from "../theme";
 type Props = {
   onDone: () => void;
   onBack: () => void;
+  onScanQr: () => void;
+  /** Prefill da deep link o scan */
+  initialUrl?: string;
 };
 
-export function PairScreen({ onDone, onBack }: Props) {
+export function PairScreen({ onDone, onBack, onScanQr, initialUrl }: Props) {
   const { setBaseUrl, sync } = useApp();
-  const [input, setInput] = useState("");
+  const [input, setInput] = useState(initialUrl || "");
   const [busy, setBusy] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
 
-  async function connect() {
-    const base = parsePairUrl(input);
+  React.useEffect(() => {
+    if (!initialUrl) return;
+    setInput(initialUrl);
+    // auto-connect dopo scan / deep link
+    void (async () => {
+      const base = parsePairUrl(initialUrl);
+      if (!base) return;
+      setBusy(true);
+      setMsg(null);
+      try {
+        const h = await healthCheck(base);
+        if (!h.ok) {
+          setMsg(
+            `PC non raggiungibile (${h.error}). Stesso Wi‑Fi? Firewall porta 3005?`
+          );
+          return;
+        }
+        await setBaseUrl(base);
+        const r = await sync();
+        setMsg(
+          r.online
+            ? `Connesso · ${r.count ?? 0} piani scaricati`
+            : r.error || "Connesso ma sync incompleto"
+        );
+        if (r.online) setTimeout(onDone, 600);
+      } finally {
+        setBusy(false);
+      }
+    })();
+  }, [initialUrl, setBaseUrl, sync, onDone]);
+
+  async function connect(raw?: string) {
+    const base = parsePairUrl(raw ?? input);
     if (!base) {
       setMsg(
         "Incolla l'URL del PC (http://192.168.x.x:3005) o un link studify://pair?…"
@@ -41,6 +75,7 @@ export function PairScreen({ onDone, onBack }: Props) {
         return;
       }
       await setBaseUrl(base);
+      setInput(base);
       const r = await sync();
       setMsg(
         r.online
@@ -62,15 +97,23 @@ export function PairScreen({ onDone, onBack }: Props) {
       </Pressable>
       <Text style={styles.title}>Collega al PC</Text>
       <Text style={styles.sub}>
-        1. Sul PC apri Studify e vai su{" "}
+        1. Sul PC apri{" "}
         <Text style={styles.mono}>/collega</Text>
         {"\n"}
-        2. Copia l&apos;indirizzo (o scansiona il QR dal browser del telefono)
+        2. Scansiona il QR o copia l&apos;URL
         {"\n"}
-        3. Incolla qui sotto e connetti
+        3. Connetti e sincronizza i piani
       </Text>
 
-      <Text style={styles.label}>URL o link pairing</Text>
+      <Pressable
+        style={styles.scanBtn}
+        onPress={onScanQr}
+        disabled={busy}
+      >
+        <Text style={styles.scanBtnText}>📷  Scansiona QR</Text>
+      </Pressable>
+
+      <Text style={styles.label}>Oppure URL / link pairing</Text>
       <TextInput
         style={styles.input}
         value={input}
@@ -97,8 +140,8 @@ export function PairScreen({ onDone, onBack }: Props) {
         <Text style={styles.tipTitle}>Suggerimenti</Text>
         <Text style={styles.tipText}>
           · PC e telefono sulla stessa rete Wi‑Fi{"\n"}
-          · Su Windows: firewall → porta TCP 3005 rete privata{"\n"}
-          · Docker o npm run dev devono essere avviati sul PC
+          · Windows: firewall TCP 3005 rete privata{"\n"}
+          · Backend avviato: npm run dev o Docker
         </Text>
       </View>
     </ScrollView>
@@ -120,9 +163,23 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: colors.textMuted,
     lineHeight: 22,
-    marginBottom: 24,
+    marginBottom: 20,
   },
   mono: { fontFamily: "monospace", color: colors.text },
+  scanBtn: {
+    backgroundColor: colors.emeraldSoft,
+    borderWidth: 1,
+    borderColor: "#6ee7b7",
+    borderRadius: 16,
+    paddingVertical: 16,
+    alignItems: "center",
+    marginBottom: 20,
+  },
+  scanBtnText: {
+    color: colors.emerald,
+    fontWeight: "800",
+    fontSize: 16,
+  },
   label: {
     fontSize: 13,
     fontWeight: "600",

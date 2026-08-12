@@ -14,10 +14,14 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.studify.app"
+      "bundleIdentifier": "com.studify.app",
+      "infoPlist": {
+        "NSCameraUsageDescription": "Studify usa la fotocamera per scansionare il QR di collegamento al PC."
+      }
     },
     "android": {
       "package": "com.studify.app",
+      "permissions": ["CAMERA"],
       "adaptiveIcon": {
         "backgroundColor": "#059669",
         "foregroundImage": "./assets/android-icon-foreground.png",
@@ -27,6 +31,15 @@
     },
     "web": {
       "favicon": "./assets/favicon.png"
-    }
+    },
+    "plugins": [
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Studify usa la fotocamera per scansionare il QR di collegamento al PC.",
+          "barcodeScannerEnabled": true
+        }
+      ]
+    ]
   }
 }

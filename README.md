@@ -158,7 +158,7 @@ npm install
 npx expo start
 ```
 
-Apri con **Expo Go** (Android/iOS). Pairing: sul PC apri **[/collega](http://localhost:3005/collega)**, copia l’URL LAN nell’app.
+Apri con **Expo Go SDK 54** (Android/iOS). Pairing: sul PC apri **[/collega](http://localhost:3005/collega)** e nell’app **Scansiona QR** (o incolla l’URL).
 
 Dettagli: **[mobile/README.md](./mobile/README.md)**.
 
