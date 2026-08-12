@@ -33,13 +33,18 @@ export function MarkdownView({
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.11/dist/katex.min.css" />
   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/github-markdown-css@5.8.1/github-markdown-light.min.css" />
   <style>
-    html, body { margin: 0; padding: 0; background: #fafafa; }
-    .wrap { padding: 12px 16px 48px; }
+    html, body { margin: 0; padding: 0; background: #f6f8f5; }
+    .wrap { padding: 8px 16px 48px; }
     .markdown-body {
       background: transparent;
       font-size: 16px;
-      line-height: 1.65;
+      line-height: 1.7;
       color: #18181b;
+    }
+    .markdown-body code {
+      background: #eef2ec;
+      border-radius: 6px;
+      padding: 0.1em 0.35em;
     }
     .markdown-body h1, .markdown-body h2, .markdown-body h3 {
       border-bottom: none;

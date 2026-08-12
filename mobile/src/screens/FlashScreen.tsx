@@ -1,10 +1,5 @@
 import React, { useEffect, useMemo, useState } from "react";
-import {
-  View,
-  Text,
-  Pressable,
-  StyleSheet,
-} from "react-native";
+import { View, Text, Pressable, StyleSheet } from "react-native";
 import {
   enqueueOutbox,
   getPianoFromCache,
@@ -12,8 +7,14 @@ import {
 } from "../lib/storage";
 import { addDaysISO, aggiornaSM2 } from "../lib/sm2";
 import type { FlashcardRow, PianoBundle } from "../lib/types";
-import { colors } from "../theme";
+import { colors, radius, shadow, space } from "../theme";
 import { useApp } from "../context/AppContext";
+import {
+  BackLink,
+  EmptyState,
+  ProgressBar,
+  Screen,
+} from "../components/ui";
 
 type Props = {
   pianoId: string;
@@ -26,6 +27,7 @@ export function FlashScreen({ pianoId, onBack }: Props) {
   const [idx, setIdx] = useState(0);
   const [flipped, setFlipped] = useState(false);
   const [done, setDone] = useState(0);
+  const [finished, setFinished] = useState(false);
 
   useEffect(() => {
     void getPianoFromCache(pianoId).then(setBundle);
@@ -73,8 +75,7 @@ export function FlashScreen({ pianoId, onBack }: Props) {
     setDone((d) => d + 1);
     setFlipped(false);
     if (idx + 1 >= cards.length) {
-      // fine sessione
-      setIdx(0);
+      setFinished(true);
       await refreshLocal();
     } else {
       setIdx(idx + 1);
@@ -83,56 +84,107 @@ export function FlashScreen({ pianoId, onBack }: Props) {
 
   if (!bundle) {
     return (
-      <View style={styles.center}>
+      <Screen style={styles.center}>
         <Text style={styles.muted}>Carico…</Text>
-      </View>
+      </Screen>
     );
   }
 
   if (!cards.length) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.title}>Nessuna flashcard</Text>
-        <Pressable onPress={onBack}>
-          <Text style={styles.backText}>← Indietro</Text>
+      <Screen>
+        <View style={styles.pad}>
+          <BackLink label="Piano" onPress={onBack} />
+          <EmptyState
+            icon="🃏"
+            title="Nessuna flashcard"
+            body="Questo piano non ha ancora carte in cache."
+            actionLabel="Torna al piano"
+            onAction={onBack}
+          />
+        </View>
+      </Screen>
+    );
+  }
+
+  if (finished) {
+    return (
+      <Screen style={styles.centerPad} edges="all">
+        <Text style={styles.doneEmoji}>✨</Text>
+        <Text style={styles.doneTitle}>Sessione finita</Text>
+        <Text style={styles.muted}>
+          Hai ripassato {done} carte. I progressi SM-2 andranno al PC al sync.
+        </Text>
+        <Pressable style={styles.doneBtn} onPress={onBack}>
+          <Text style={styles.doneBtnText}>Torna al piano</Text>
         </Pressable>
-      </View>
+      </Screen>
     );
   }
 
   return (
-    <View style={styles.container}>
+    <Screen style={styles.container}>
       <View style={styles.header}>
-        <Pressable onPress={onBack}>
-          <Text style={styles.backText}>← Piano</Text>
-        </Pressable>
-        <Text style={styles.meta}>
-          {idx + 1}/{cards.length} · fatte {done}
-        </Text>
+        <BackLink label="Piano" onPress={onBack} />
+        <View style={styles.metaRow}>
+          <Text style={styles.meta}>
+            {idx + 1} / {cards.length}
+          </Text>
+          <Text style={styles.metaSoft}>fatte {done}</Text>
+        </View>
+        <ProgressBar value={idx} max={Math.max(1, cards.length)} height={6} />
       </View>
 
-      <Pressable style={styles.card} onPress={() => setFlipped((f) => !f)}>
-        <Text style={styles.sideLabel}>{flipped ? "Retro" : "Fronte"}</Text>
+      <Pressable
+        style={[styles.card, flipped && styles.cardBack]}
+        onPress={() => setFlipped((f) => !f)}
+      >
+        <View style={styles.sideBadge}>
+          <Text style={styles.sideLabel}>{flipped ? "Retro" : "Fronte"}</Text>
+        </View>
         <Text style={styles.cardText}>
           {flipped ? card.retro : card.fronte}
         </Text>
-        <Text style={styles.hint}>Tocca per girare</Text>
+        <Text style={styles.hint}>
+          {flipped ? "Valuta qui sotto" : "Tocca per girare"}
+        </Text>
       </Pressable>
 
       {flipped ? (
         <View style={styles.rates}>
-          {[
-            { v: 1, label: "No", color: colors.rose },
-            { v: 2, label: "Difficile", color: colors.amber },
-            { v: 3, label: "Ok", color: colors.emerald },
-            { v: 4, label: "Facile", color: "#047857" },
-          ].map((r) => (
+          {(
+            [
+              { v: 1, label: "No", sub: "di nuovo", bg: colors.roseSoft, fg: colors.rose },
+              {
+                v: 2,
+                label: "Difficile",
+                sub: "lento",
+                bg: colors.amberSoft,
+                fg: colors.amber,
+              },
+              {
+                v: 3,
+                label: "Ok",
+                sub: "bene",
+                bg: colors.emeraldSoft,
+                fg: colors.emeraldDeep,
+              },
+              {
+                v: 4,
+                label: "Facile",
+                sub: "subito",
+                bg: "#bbf7d0",
+                fg: "#047857",
+              },
+            ] as const
+          ).map((r) => (
             <Pressable
               key={r.v}
-              style={[styles.rateBtn, { borderColor: r.color }]}
+              style={[styles.rateBtn, { backgroundColor: r.bg }]}
               onPress={() => void rate(r.v)}
             >
-              <Text style={[styles.rateText, { color: r.color }]}>{r.label}</Text>
+              <Text style={[styles.rateText, { color: r.fg }]}>{r.label}</Text>
+              <Text style={[styles.rateSub, { color: r.fg }]}>{r.sub}</Text>
             </Pressable>
           ))}
         </View>
@@ -141,81 +193,114 @@ export function FlashScreen({ pianoId, onBack }: Props) {
           Gira la carta, poi valuta quanto la ricordavi (SM-2).
         </Text>
       )}
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg, padding: 20, paddingTop: 56 },
-  center: {
-    flex: 1,
+  container: { paddingHorizontal: space.xl, paddingBottom: space.xl },
+  pad: { flex: 1, paddingHorizontal: space.xl },
+  center: { alignItems: "center", justifyContent: "center" },
+  centerPad: {
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.bg,
+    paddingHorizontal: 28,
   },
-  header: {
+  header: { marginBottom: space.lg },
+  metaRow: {
     flexDirection: "row",
     justifyContent: "space-between",
-    alignItems: "center",
-    marginBottom: 20,
+    marginBottom: 8,
   },
-  backText: { color: colors.emerald, fontWeight: "600" },
-  meta: { color: colors.textMuted, fontSize: 13 },
-  title: { fontSize: 18, fontWeight: "700", marginBottom: 12 },
-  muted: { color: colors.textMuted },
+  meta: { color: colors.text, fontSize: 14, fontWeight: "800" },
+  metaSoft: { color: colors.textMuted, fontSize: 13, fontWeight: "600" },
+  muted: {
+    color: colors.textMuted,
+    textAlign: "center",
+    lineHeight: 21,
+    marginTop: 8,
+  },
   card: {
     flex: 1,
-    maxHeight: 380,
+    maxHeight: 400,
     backgroundColor: colors.bgCard,
-    borderRadius: 24,
+    borderRadius: radius.xl,
     borderWidth: 1,
-    borderColor: colors.border,
-    padding: 24,
+    borderColor: colors.borderSoft,
+    padding: 28,
     justifyContent: "center",
     alignItems: "center",
+    ...shadow.card,
   },
-  sideLabel: {
+  cardBack: {
+    backgroundColor: colors.emeraldMuted,
+    borderColor: colors.emeraldSoft,
+  },
+  sideBadge: {
     position: "absolute",
     top: 16,
-    fontSize: 12,
-    fontWeight: "700",
+    backgroundColor: colors.bgElevated,
+    paddingHorizontal: 12,
+    paddingVertical: 4,
+    borderRadius: radius.full,
+  },
+  sideLabel: {
+    fontSize: 11,
+    fontWeight: "800",
     color: colors.textMuted,
     textTransform: "uppercase",
+    letterSpacing: 0.6,
   },
   cardText: {
-    fontSize: 20,
-    lineHeight: 30,
+    fontSize: 21,
+    lineHeight: 32,
     textAlign: "center",
     color: colors.text,
-    fontWeight: "500",
+    fontWeight: "600",
   },
   hint: {
     position: "absolute",
-    bottom: 16,
+    bottom: 18,
     fontSize: 12,
-    color: colors.textMuted,
+    color: colors.textSoft,
+    fontWeight: "600",
   },
   rates: {
     flexDirection: "row",
     flexWrap: "wrap",
     gap: 10,
-    marginTop: 20,
-    marginBottom: 20,
+    marginTop: 18,
   },
   rateBtn: {
     flexGrow: 1,
-    minWidth: "40%",
-    borderWidth: 1.5,
-    borderRadius: 14,
+    minWidth: "45%",
+    borderRadius: radius.md,
     paddingVertical: 14,
     alignItems: "center",
-    backgroundColor: colors.bgCard,
   },
-  rateText: { fontWeight: "700" },
+  rateText: { fontWeight: "800", fontSize: 15 },
+  rateSub: { fontSize: 11, marginTop: 2, fontWeight: "600", opacity: 0.8 },
   footerHint: {
-    marginTop: 20,
+    marginTop: 18,
     textAlign: "center",
     color: colors.textMuted,
     fontSize: 13,
+    lineHeight: 19,
   },
+  doneEmoji: { fontSize: 48, marginBottom: 8 },
+  doneTitle: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: colors.text,
+    letterSpacing: -0.4,
+  },
+  doneBtn: {
+    marginTop: 24,
+    backgroundColor: colors.emerald,
+    paddingHorizontal: 24,
+    paddingVertical: 14,
+    borderRadius: radius.md,
+    ...shadow.soft,
+  },
+  doneBtnText: { color: "#fff", fontWeight: "800" },
 });

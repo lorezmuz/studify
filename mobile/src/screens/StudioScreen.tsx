@@ -1,14 +1,15 @@
 import React, { useEffect, useState } from "react";
-import { View, Text, Pressable, StyleSheet } from "react-native";
+import { View, Text, StyleSheet } from "react-native";
 import {
   enqueueOutbox,
   getPianoFromCache,
   upsertPianoInCache,
 } from "../lib/storage";
 import type { PianoBundle } from "../lib/types";
-import { colors } from "../theme";
+import { colors, space } from "../theme";
 import { useApp } from "../context/AppContext";
 import { MarkdownView } from "../components/MarkdownView";
+import { BackLink, PrimaryButton, Screen } from "../components/ui";
 
 type Props = {
   pianoId: string;
@@ -61,8 +62,7 @@ export function StudioScreen({
         }
         return {
           ...n,
-          status:
-            n.status === "current" ? ("locked" as const) : n.status,
+          status: n.status === "current" ? ("locked" as const) : n.status,
         };
       });
 
@@ -78,62 +78,62 @@ export function StudioScreen({
   }
 
   return (
-    <View style={styles.container}>
+    <Screen>
       <View style={styles.header}>
-        <Pressable onPress={onBack}>
-          <Text style={styles.backText}>← Indietro</Text>
-        </Pressable>
+        <BackLink label="Piano" onPress={onBack} />
+        <Text style={styles.kicker}>Studio</Text>
         <Text style={styles.title} numberOfLines={2}>
           {title}
         </Text>
       </View>
 
-      <View style={styles.md}>
+      <View style={[styles.md, nodeId ? { marginBottom: 96 } : null]}>
         <MarkdownView markdown={body} title={title} />
       </View>
 
       {nodeId ? (
         <View style={styles.footer}>
-          <Pressable
-            style={[styles.primaryBtn, done && { opacity: 0.7 }]}
+          <PrimaryButton
+            label={done ? "Completato ✓" : "Segna completato"}
             onPress={() => void markDone().then(onBack)}
             disabled={done}
-          >
-            <Text style={styles.primaryBtnText}>
-              {done ? "Completato" : "Segna completato"}
-            </Text>
-          </Pressable>
+          />
         </View>
       ) : null}
-    </View>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  header: { paddingTop: 56, paddingHorizontal: 20, paddingBottom: 8 },
-  backText: { color: colors.emerald, fontWeight: "600", marginBottom: 8 },
-  title: {
-    fontSize: 22,
-    fontWeight: "700",
-    color: colors.text,
+  header: {
+    paddingHorizontal: space.xl,
+    paddingBottom: 4,
   },
-  md: { flex: 1, marginBottom: 88 },
+  kicker: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: colors.emerald,
+    textTransform: "uppercase",
+    letterSpacing: 0.8,
+    marginBottom: 4,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: "800",
+    color: colors.text,
+    letterSpacing: -0.4,
+    marginBottom: 8,
+  },
+  md: { flex: 1 },
   footer: {
     position: "absolute",
     left: 0,
     right: 0,
     bottom: 0,
-    padding: 16,
+    padding: space.lg,
+    paddingBottom: 28,
     backgroundColor: colors.bg,
     borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopColor: colors.borderSoft,
   },
-  primaryBtn: {
-    backgroundColor: colors.emerald,
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: "center",
-  },
-  primaryBtnText: { color: "#fff", fontWeight: "700" },
 });

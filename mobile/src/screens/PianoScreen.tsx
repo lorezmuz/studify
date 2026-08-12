@@ -8,10 +8,21 @@ import {
   ActivityIndicator,
 } from "react-native";
 import { useFocusEffect } from "../hooks/useFocusEffect";
-import { getPianoFromCache, enqueueOutbox, upsertPianoInCache } from "../lib/storage";
+import {
+  getPianoFromCache,
+  enqueueOutbox,
+  upsertPianoInCache,
+} from "../lib/storage";
 import type { PianoBundle, RoadmapNode } from "../lib/types";
-import { colors } from "../theme";
+import { colors, radius, shadow, space } from "../theme";
 import { useApp } from "../context/AppContext";
+import {
+  BackLink,
+  ProgressBar,
+  Screen,
+  SectionLabel,
+} from "../components/ui";
+import { badgeCountdown } from "../lib/dates";
 
 type Props = {
   pianoId: string;
@@ -59,38 +70,24 @@ export function PianoScreen({
       return;
     }
 
-    // review / chest → marca done localmente
     const progress = {
       ...bundle.progress,
       completedIds: [...new Set([...bundle.progress.completedIds, node.id])],
       xp: (bundle.progress.xp || 0) + (node.type === "chest" ? 30 : 15),
     };
-    const roadmap = bundle.roadmap.map((n) => {
-      if (n.id === node.id) return { ...n, status: "done" as const };
-      return n;
-    });
-    // sblocca il prossimo locked
-    const nextLocked = roadmap.find((n) => n.status === "locked");
-    const roadmap2 = roadmap.map((n) => {
-      if (nextLocked && n.id === nextLocked.id && n.status === "locked") {
-        return { ...n, status: "current" as const };
-      }
-      if (n.status === "done") return n;
-      if (n.id === node.id) return { ...n, status: "done" as const };
-      return n;
-    });
 
     const updated: PianoBundle = {
       ...bundle,
       progress,
-      roadmap: roadmap2.map((n) =>
-        n.id === node.id ? { ...n, status: "done" } : n
+      roadmap: bundle.roadmap.map((n) =>
+        n.id === node.id ? { ...n, status: "done" as const } : n
       ),
     };
-    // apply simple unlock: first non-done becomes current
     let foundCurrent = false;
     updated.roadmap = updated.roadmap.map((n) => {
-      if (n.status === "done") return n;
+      if (n.status === "done" || n.id === node.id) {
+        return n.id === node.id ? { ...n, status: "done" as const } : n;
+      }
       if (!foundCurrent) {
         foundCurrent = true;
         return { ...n, status: "current" as const };
@@ -111,85 +108,181 @@ export function PianoScreen({
 
   if (!bundle) {
     return (
-      <View style={styles.center}>
+      <Screen style={styles.center}>
         <ActivityIndicator color={colors.emerald} />
-        <Pressable onPress={onBack} style={{ marginTop: 16 }}>
-          <Text style={styles.backText}>← Indietro</Text>
-        </Pressable>
-      </View>
+        <View style={{ marginTop: 16 }}>
+          <BackLink label="Indietro" onPress={onBack} />
+        </View>
+      </Screen>
     );
   }
 
   const p = bundle.piano;
+  const b = badgeCountdown(p.data_esame);
+  const done = bundle.progress?.completedIds?.length ?? 0;
+  const total = Math.max(1, bundle.roadmap?.length ?? 0);
+  const xp = bundle.progress?.xp ?? 0;
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.pad}>
-      <Pressable onPress={onBack}>
-        <Text style={styles.backText}>← Piani</Text>
-      </Pressable>
-      <Text style={styles.materia}>{p.materia}</Text>
-      <Text style={styles.argomenti}>{p.argomenti}</Text>
-      <Text style={styles.xp}>
-        {bundle.progress?.xp ?? 0} XP · {bundle.progress?.completedIds?.length ?? 0}/
-        {bundle.roadmap?.length ?? 0} tappe
-      </Text>
+    <Screen>
+      <ScrollView
+        contentContainerStyle={styles.pad}
+        showsVerticalScrollIndicator={false}
+      >
+        <BackLink label="Piani" onPress={onBack} />
 
-      <View style={styles.actions}>
-        <Pressable style={styles.actionBtn} onPress={onFlash}>
-          <Text style={styles.actionBtnText}>Flashcard</Text>
-          <Text style={styles.actionSub}>{bundle.flashcard.length}</Text>
-        </Pressable>
-        <Pressable style={styles.actionBtn} onPress={onQuiz}>
-          <Text style={styles.actionBtnText}>Quiz</Text>
-          <Text style={styles.actionSub}>{bundle.quiz.length}</Text>
-        </Pressable>
-      </View>
-
-      <Text style={styles.sectionTitle}>Percorso</Text>
-      {bundle.roadmap.map((node, i) => (
-        <Pressable
-          key={node.id}
-          style={[
-            styles.node,
-            node.status === "done" && styles.nodeDone,
-            node.status === "current" && styles.nodeCurrent,
-            node.status === "locked" && styles.nodeLocked,
-          ]}
-          disabled={node.status === "locked" || busyNode === node.id}
-          onPress={() => void completeNode(node)}
-        >
-          <View style={styles.nodeDot}>
-            <Text style={styles.nodeDotText}>
-              {node.status === "done" ? "✓" : i + 1}
-            </Text>
-          </View>
-          <View style={{ flex: 1 }}>
-            <Text style={styles.nodeTitle}>{node.title}</Text>
-            <Text style={styles.nodeDesc} numberOfLines={2}>
-              {node.description || node.type}
-            </Text>
-          </View>
-          <Text style={styles.nodeType}>{labelType(node.type)}</Text>
-        </Pressable>
-      ))}
-
-      {bundle.sections?.length > 0 && (
-        <>
-          <Text style={[styles.sectionTitle, { marginTop: 24 }]}>
-            Sezioni studio
-          </Text>
-          {bundle.sections.map((s, idx) => (
-            <Pressable
-              key={idx}
-              style={styles.sectionCard}
-              onPress={() => onStudio(idx)}
+        <View style={styles.hero}>
+          <View style={styles.heroTop}>
+            <Text style={styles.materia}>{p.materia}</Text>
+            <View
+              style={[
+                styles.timePill,
+                b.urgent && styles.timeUrgent,
+                b.past && styles.timePast,
+              ]}
             >
-              <Text style={styles.sectionCardTitle}>{s.title}</Text>
-            </Pressable>
+              <Text style={styles.timeText}>{b.label}</Text>
+            </View>
+          </View>
+          <Text style={styles.argomenti}>{p.argomenti}</Text>
+
+          <View style={styles.stats}>
+            <View style={styles.stat}>
+              <Text style={styles.statVal}>{xp}</Text>
+              <Text style={styles.statLbl}>XP</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.stat}>
+              <Text style={styles.statVal}>
+                {done}/{bundle.roadmap?.length ?? 0}
+              </Text>
+              <Text style={styles.statLbl}>tappe</Text>
+            </View>
+            <View style={styles.statDivider} />
+            <View style={styles.stat}>
+              <Text style={styles.statVal}>{bundle.flashcard.length}</Text>
+              <Text style={styles.statLbl}>flash</Text>
+            </View>
+          </View>
+          <ProgressBar value={done} max={total} height={10} />
+        </View>
+
+        <View style={styles.actions}>
+          <ActionTile
+            emoji="🃏"
+            title="Flashcard"
+            sub={`${bundle.flashcard.length} carte`}
+            color={colors.violetSoft}
+            onPress={onFlash}
+          />
+          <ActionTile
+            emoji="✅"
+            title="Quiz"
+            sub={`${bundle.quiz.length} set`}
+            color={colors.skySoft}
+            onPress={onQuiz}
+          />
+        </View>
+
+        <SectionLabel>Percorso</SectionLabel>
+        <View style={styles.path}>
+          {bundle.roadmap.map((node, i) => (
+            <View key={node.id} style={styles.pathItem}>
+              {i > 0 ? (
+                <View
+                  style={[
+                    styles.connector,
+                    node.status !== "locked" && styles.connectorOn,
+                  ]}
+                />
+              ) : null}
+              <Pressable
+                style={[
+                  styles.node,
+                  node.status === "done" && styles.nodeDone,
+                  node.status === "current" && styles.nodeCurrent,
+                  node.status === "locked" && styles.nodeLocked,
+                ]}
+                disabled={node.status === "locked" || busyNode === node.id}
+                onPress={() => void completeNode(node)}
+              >
+                <View
+                  style={[
+                    styles.nodeDot,
+                    node.status === "done" && styles.dotDone,
+                    node.status === "locked" && styles.dotLocked,
+                    node.status === "current" && styles.dotCurrent,
+                  ]}
+                >
+                  <Text style={styles.nodeDotText}>
+                    {node.status === "done" ? "✓" : typeEmoji(node.type)}
+                  </Text>
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.nodeTitle}>{node.title}</Text>
+                  <Text style={styles.nodeDesc} numberOfLines={2}>
+                    {node.description || labelType(node.type)}
+                  </Text>
+                </View>
+                <View style={styles.typeChip}>
+                  <Text style={styles.typeChipText}>{labelType(node.type)}</Text>
+                </View>
+              </Pressable>
+            </View>
           ))}
-        </>
-      )}
-    </ScrollView>
+        </View>
+
+        {bundle.sections?.length > 0 && (
+          <>
+            <SectionLabel>Sezioni studio</SectionLabel>
+            {bundle.sections.map((s, idx) => (
+              <Pressable
+                key={idx}
+                style={styles.sectionCard}
+                onPress={() => onStudio(idx)}
+              >
+                <View style={styles.sectionNum}>
+                  <Text style={styles.sectionNumText}>{idx + 1}</Text>
+                </View>
+                <Text style={styles.sectionCardTitle} numberOfLines={2}>
+                  {s.title}
+                </Text>
+                <Text style={styles.chev}>›</Text>
+              </Pressable>
+            ))}
+          </>
+        )}
+      </ScrollView>
+    </Screen>
+  );
+}
+
+function ActionTile({
+  emoji,
+  title,
+  sub,
+  color,
+  onPress,
+}: {
+  emoji: string;
+  title: string;
+  sub: string;
+  color: string;
+  onPress: () => void;
+}) {
+  return (
+    <Pressable
+      onPress={onPress}
+      style={({ pressed }) => [
+        styles.actionBtn,
+        { backgroundColor: color },
+        pressed && { opacity: 0.9 },
+      ]}
+    >
+      <Text style={styles.actionEmoji}>{emoji}</Text>
+      <Text style={styles.actionBtnText}>{title}</Text>
+      <Text style={styles.actionSub}>{sub}</Text>
+    </Pressable>
   );
 }
 
@@ -210,85 +303,165 @@ function labelType(t: RoadmapNode["type"]) {
   }
 }
 
+function typeEmoji(t: RoadmapNode["type"]) {
+  switch (t) {
+    case "read":
+      return "📖";
+    case "flashcards":
+      return "🃏";
+    case "quiz":
+      return "❓";
+    case "review":
+      return "🔁";
+    case "chest":
+      return "🎁";
+    default:
+      return "•";
+  }
+}
+
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  pad: { padding: 20, paddingTop: 56, paddingBottom: 48 },
-  center: {
-    flex: 1,
-    alignItems: "center",
-    justifyContent: "center",
-    backgroundColor: colors.bg,
+  pad: { paddingHorizontal: space.xl, paddingBottom: 56 },
+  center: { alignItems: "center", justifyContent: "center" },
+  hero: {
+    backgroundColor: colors.bgCard,
+    borderRadius: radius.xl,
+    padding: space.lg,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    marginBottom: space.lg,
+    ...shadow.card,
   },
-  backText: { color: colors.emerald, fontWeight: "600", marginBottom: 12 },
+  heroTop: {
+    flexDirection: "row",
+    alignItems: "flex-start",
+    justifyContent: "space-between",
+    gap: 10,
+  },
   materia: {
-    fontSize: 28,
-    fontWeight: "700",
+    flex: 1,
+    fontSize: 26,
+    fontWeight: "800",
     color: colors.text,
-    letterSpacing: -0.5,
+    letterSpacing: -0.6,
   },
   argomenti: {
     marginTop: 6,
-    fontSize: 15,
+    fontSize: 14,
     color: colors.textMuted,
-    lineHeight: 22,
+    lineHeight: 20,
   },
-  xp: { marginTop: 10, fontSize: 13, color: colors.emerald, fontWeight: "600" },
-  actions: { flexDirection: "row", gap: 10, marginTop: 18 },
+  timePill: {
+    backgroundColor: colors.emeraldSoft,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: radius.full,
+  },
+  timeUrgent: { backgroundColor: colors.amberSoft },
+  timePast: { backgroundColor: colors.bgElevated },
+  timeText: { fontSize: 11, fontWeight: "700", color: colors.text },
+  stats: {
+    flexDirection: "row",
+    alignItems: "center",
+    marginTop: 16,
+    marginBottom: 12,
+  },
+  stat: { flex: 1, alignItems: "center" },
+  statVal: { fontSize: 18, fontWeight: "800", color: colors.text },
+  statLbl: { fontSize: 11, color: colors.textMuted, marginTop: 2 },
+  statDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: colors.border,
+  },
+  actions: { flexDirection: "row", gap: 10 },
   actionBtn: {
     flex: 1,
-    backgroundColor: colors.bgCard,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 16,
+    borderRadius: radius.lg,
     padding: 14,
+    minHeight: 100,
   },
-  actionBtnText: { fontWeight: "700", color: colors.text },
-  actionSub: { marginTop: 4, color: colors.textMuted, fontSize: 12 },
-  sectionTitle: {
-    marginTop: 22,
-    marginBottom: 10,
-    fontSize: 13,
-    fontWeight: "700",
-    color: colors.textMuted,
-    textTransform: "uppercase",
-    letterSpacing: 0.6,
+  actionEmoji: { fontSize: 22, marginBottom: 6 },
+  actionBtnText: { fontWeight: "800", color: colors.text, fontSize: 15 },
+  actionSub: { marginTop: 2, color: colors.textMuted, fontSize: 12 },
+  path: { gap: 0 },
+  pathItem: { position: "relative" },
+  connector: {
+    position: "absolute",
+    left: 27,
+    top: -8,
+    width: 2,
+    height: 12,
+    backgroundColor: colors.border,
+    zIndex: 0,
   },
+  connectorOn: { backgroundColor: colors.emerald },
   node: {
     flexDirection: "row",
     alignItems: "center",
     gap: 12,
     backgroundColor: colors.bgCard,
-    borderRadius: 16,
+    borderRadius: radius.lg,
     padding: 14,
-    borderWidth: 1,
-    borderColor: colors.border,
+    borderWidth: 1.5,
+    borderColor: colors.borderSoft,
     marginBottom: 10,
+    ...shadow.card,
   },
-  nodeDone: { opacity: 0.75 },
+  nodeDone: { opacity: 0.72 },
   nodeCurrent: {
     borderColor: colors.emerald,
-    backgroundColor: colors.emeraldSoft,
+    backgroundColor: colors.emeraldMuted,
   },
-  nodeLocked: { opacity: 0.45 },
+  nodeLocked: { opacity: 0.5 },
   nodeDot: {
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: colors.emerald,
+    width: 40,
+    height: 40,
+    borderRadius: 14,
+    backgroundColor: colors.emeraldSoft,
     alignItems: "center",
     justifyContent: "center",
   },
-  nodeDotText: { color: "#fff", fontWeight: "700", fontSize: 13 },
-  nodeTitle: { fontWeight: "700", color: colors.text, fontSize: 15 },
+  dotDone: { backgroundColor: colors.emerald },
+  dotCurrent: {
+    backgroundColor: colors.emerald,
+    ...shadow.soft,
+  },
+  dotLocked: { backgroundColor: colors.bgElevated },
+  nodeDotText: { fontSize: 15, color: "#fff", fontWeight: "700" },
+  nodeTitle: { fontWeight: "800", color: colors.text, fontSize: 15 },
   nodeDesc: { marginTop: 2, fontSize: 12, color: colors.textMuted },
-  nodeType: { fontSize: 11, fontWeight: "600", color: colors.textMuted },
+  typeChip: {
+    backgroundColor: colors.bgElevated,
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: radius.full,
+  },
+  typeChipText: { fontSize: 10, fontWeight: "700", color: colors.textMuted },
   sectionCard: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
     backgroundColor: colors.bgCard,
-    borderRadius: 12,
+    borderRadius: radius.md,
     padding: 14,
     borderWidth: 1,
-    borderColor: colors.border,
+    borderColor: colors.borderSoft,
     marginBottom: 8,
   },
-  sectionCardTitle: { fontWeight: "600", color: colors.text },
+  sectionNum: {
+    width: 28,
+    height: 28,
+    borderRadius: 10,
+    backgroundColor: colors.emeraldSoft,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  sectionNumText: {
+    fontSize: 12,
+    fontWeight: "800",
+    color: colors.emeraldDeep,
+  },
+  sectionCardTitle: { flex: 1, fontWeight: "600", color: colors.text },
+  chev: { fontSize: 22, color: colors.textSoft, fontWeight: "300" },
 });

@@ -3,19 +3,24 @@ import {
   View,
   Text,
   TextInput,
-  Pressable,
   StyleSheet,
   ScrollView,
 } from "react-native";
 import { useApp } from "../context/AppContext";
 import { healthCheck, parsePairUrl } from "../lib/api";
-import { colors } from "../theme";
+import { colors, radius, space } from "../theme";
+import {
+  BackLink,
+  BrandMark,
+  PrimaryButton,
+  Screen,
+  Title,
+} from "../components/ui";
 
 type Props = {
   onDone: () => void;
   onBack: () => void;
   onScanQr: () => void;
-  /** Prefill da deep link o scan */
   initialUrl?: string;
 };
 
@@ -28,7 +33,6 @@ export function PairScreen({ onDone, onBack, onScanQr, initialUrl }: Props) {
   React.useEffect(() => {
     if (!initialUrl) return;
     setInput(initialUrl);
-    // auto-connect dopo scan / deep link
     void (async () => {
       const base = parsePairUrl(initialUrl);
       if (!base) return;
@@ -82,107 +86,99 @@ export function PairScreen({ onDone, onBack, onScanQr, initialUrl }: Props) {
           ? `Connesso · ${r.count ?? 0} piani scaricati`
           : r.error || "Connesso ma sync incompleto"
       );
-      if (r.online) {
-        setTimeout(onDone, 600);
-      }
+      if (r.online) setTimeout(onDone, 600);
     } finally {
       setBusy(false);
     }
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.pad}>
-      <Pressable onPress={onBack} style={styles.back}>
-        <Text style={styles.backText}>← Indietro</Text>
-      </Pressable>
-      <Text style={styles.title}>Collega al PC</Text>
-      <Text style={styles.sub}>
-        1. Sul PC apri{" "}
-        <Text style={styles.mono}>/collega</Text>
-        {"\n"}
-        2. Scansiona il QR o copia l&apos;URL
-        {"\n"}
-        3. Connetti e sincronizza i piani
-      </Text>
+    <Screen>
+      <ScrollView contentContainerStyle={styles.pad} showsVerticalScrollIndicator={false}>
+        <BackLink label="Home" onPress={onBack} />
+        <View style={styles.hero}>
+          <BrandMark size={52} />
+          <Title subtitle="Stesso Wi‑Fi del PC · porta 3005">
+            Collega al PC
+          </Title>
+        </View>
 
-      <Pressable
-        style={styles.scanBtn}
-        onPress={onScanQr}
-        disabled={busy}
-      >
-        <Text style={styles.scanBtnText}>📷  Scansiona QR</Text>
-      </Pressable>
+        <View style={styles.steps}>
+          <Step n={1} text="Sul PC apri /collega" />
+          <Step n={2} text="Scansiona il QR o copia l’URL" />
+          <Step n={3} text="Sincronizza i piani" />
+        </View>
 
-      <Text style={styles.label}>Oppure URL / link pairing</Text>
-      <TextInput
-        style={styles.input}
-        value={input}
-        onChangeText={setInput}
-        autoCapitalize="none"
-        autoCorrect={false}
-        placeholder="http://192.168.1.10:3005"
-        placeholderTextColor={colors.textMuted}
-      />
+        <PrimaryButton
+          label="📷  Scansiona QR"
+          onPress={onScanQr}
+          disabled={busy}
+        />
+        <View style={{ height: 14 }} />
 
-      <Pressable
-        style={[styles.primaryBtn, busy && { opacity: 0.6 }]}
-        disabled={busy}
-        onPress={() => void connect()}
-      >
-        <Text style={styles.primaryBtnText}>
-          {busy ? "Connetto…" : "Connetti e sincronizza"}
-        </Text>
-      </Pressable>
+        <Text style={styles.label}>Oppure URL / link pairing</Text>
+        <TextInput
+          style={styles.input}
+          value={input}
+          onChangeText={setInput}
+          autoCapitalize="none"
+          autoCorrect={false}
+          placeholder="http://192.168.1.10:3005"
+          placeholderTextColor={colors.textSoft}
+        />
 
-      {msg ? <Text style={styles.msg}>{msg}</Text> : null}
+        <PrimaryButton
+          label={busy ? "Connetto…" : "Connetti e sincronizza"}
+          onPress={() => void connect()}
+          loading={busy}
+          disabled={busy}
+          variant="secondary"
+        />
 
-      <View style={styles.tip}>
-        <Text style={styles.tipTitle}>Suggerimenti</Text>
-        <Text style={styles.tipText}>
-          · PC e telefono sulla stessa rete Wi‑Fi{"\n"}
-          · Windows: firewall TCP 3005 rete privata{"\n"}
-          · Backend avviato: npm run dev o Docker
-        </Text>
+        {msg ? <Text style={styles.msg}>{msg}</Text> : null}
+
+        <View style={styles.tip}>
+          <Text style={styles.tipTitle}>Suggerimenti</Text>
+          <Text style={styles.tipText}>
+            · PC e telefono sulla stessa rete Wi‑Fi{"\n"}
+            · Windows: firewall TCP 3005 rete privata{"\n"}
+            · Backend avviato: npm run dev o Docker
+          </Text>
+        </View>
+      </ScrollView>
+    </Screen>
+  );
+}
+
+function Step({ n, text }: { n: number; text: string }) {
+  return (
+    <View style={styles.step}>
+      <View style={styles.stepN}>
+        <Text style={styles.stepNText}>{n}</Text>
       </View>
-    </ScrollView>
+      <Text style={styles.stepText}>{text}</Text>
+    </View>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  pad: { padding: 20, paddingTop: 56, paddingBottom: 40 },
-  back: { marginBottom: 12 },
-  backText: { color: colors.emerald, fontWeight: "600", fontSize: 15 },
-  title: {
-    fontSize: 28,
-    fontWeight: "700",
-    color: colors.text,
-    marginBottom: 10,
-  },
-  sub: {
-    fontSize: 14,
-    color: colors.textMuted,
-    lineHeight: 22,
-    marginBottom: 20,
-  },
-  mono: { fontFamily: "monospace", color: colors.text },
-  scanBtn: {
+  pad: { paddingHorizontal: space.xl, paddingBottom: 48 },
+  hero: { alignItems: "flex-start", gap: 12, marginBottom: 4 },
+  steps: { marginBottom: 22, gap: 10 },
+  step: { flexDirection: "row", alignItems: "center", gap: 12 },
+  stepN: {
+    width: 28,
+    height: 28,
+    borderRadius: 10,
     backgroundColor: colors.emeraldSoft,
-    borderWidth: 1,
-    borderColor: "#6ee7b7",
-    borderRadius: 16,
-    paddingVertical: 16,
     alignItems: "center",
-    marginBottom: 20,
+    justifyContent: "center",
   },
-  scanBtnText: {
-    color: colors.emerald,
-    fontWeight: "800",
-    fontSize: 16,
-  },
+  stepNText: { fontWeight: "800", color: colors.emeraldDeep, fontSize: 13 },
+  stepText: { fontSize: 14, color: colors.text, fontWeight: "600" },
   label: {
     fontSize: 13,
-    fontWeight: "600",
+    fontWeight: "700",
     color: colors.textMuted,
     marginBottom: 8,
   },
@@ -190,27 +186,26 @@ const styles = StyleSheet.create({
     backgroundColor: colors.bgCard,
     borderWidth: 1,
     borderColor: colors.border,
-    borderRadius: 14,
+    borderRadius: radius.md,
     paddingHorizontal: 14,
-    paddingVertical: 12,
+    paddingVertical: 14,
     fontSize: 15,
     color: colors.text,
     marginBottom: 12,
   },
-  primaryBtn: {
-    backgroundColor: colors.emerald,
-    borderRadius: 14,
-    paddingVertical: 14,
-    alignItems: "center",
+  msg: {
+    marginTop: 14,
+    fontSize: 14,
+    color: colors.emeraldDeep,
+    lineHeight: 20,
+    fontWeight: "600",
   },
-  primaryBtnText: { color: "#fff", fontWeight: "700" },
-  msg: { marginTop: 14, fontSize: 14, color: colors.emerald, lineHeight: 20 },
   tip: {
     marginTop: 28,
-    padding: 14,
-    borderRadius: 14,
+    padding: 16,
+    borderRadius: radius.lg,
     backgroundColor: colors.amberSoft,
   },
-  tipTitle: { fontWeight: "700", color: colors.text, marginBottom: 6 },
+  tipTitle: { fontWeight: "800", color: colors.text, marginBottom: 6 },
   tipText: { fontSize: 13, color: colors.text, lineHeight: 20 },
 });

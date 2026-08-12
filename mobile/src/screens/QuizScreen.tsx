@@ -6,18 +6,24 @@ import {
   StyleSheet,
   ScrollView,
 } from "react-native";
-import {
-  enqueueOutbox,
-  getPianoFromCache,
-} from "../lib/storage";
+import { enqueueOutbox, getPianoFromCache } from "../lib/storage";
 import type { PianoBundle, QuizDomanda } from "../lib/types";
-import { colors } from "../theme";
+import { colors, radius, shadow, space } from "../theme";
 import { useApp } from "../context/AppContext";
+import {
+  BackLink,
+  EmptyState,
+  PrimaryButton,
+  ProgressBar,
+  Screen,
+} from "../components/ui";
 
 type Props = {
   pianoId: string;
   onBack: () => void;
 };
+
+const LETTERS = ["A", "B", "C", "D", "E", "F"];
 
 export function QuizScreen({ pianoId, onBack }: Props) {
   const { refreshLocal } = useApp();
@@ -26,6 +32,7 @@ export function QuizScreen({ pianoId, onBack }: Props) {
   const [answers, setAnswers] = useState<number[]>([]);
   const [finished, setFinished] = useState(false);
   const [score, setScore] = useState(0);
+  const [picked, setPicked] = useState<number | null>(null);
 
   useEffect(() => {
     void getPianoFromCache(pianoId).then(setBundle);
@@ -44,15 +51,19 @@ export function QuizScreen({ pianoId, onBack }: Props) {
   const current = domande[qi];
 
   function pick(optionIndex: number) {
-    if (!current || finished) return;
+    if (!current || finished || picked !== null) return;
+    setPicked(optionIndex);
     const next = [...answers];
     next[qi] = optionIndex;
     setAnswers(next);
-    if (qi + 1 >= domande.length) {
-      void finish(next);
-    } else {
-      setQi(qi + 1);
-    }
+    setTimeout(() => {
+      setPicked(null);
+      if (qi + 1 >= domande.length) {
+        void finish(next);
+      } else {
+        setQi(qi + 1);
+      }
+    }, 280);
   }
 
   async function finish(risposte: number[]) {
@@ -77,109 +88,180 @@ export function QuizScreen({ pianoId, onBack }: Props) {
 
   if (!bundle) {
     return (
-      <View style={styles.center}>
+      <Screen style={styles.center}>
         <Text style={styles.muted}>Carico…</Text>
-      </View>
+      </Screen>
     );
   }
 
   if (!domande.length) {
     return (
-      <View style={styles.center}>
-        <Text style={styles.title}>Nessun quiz in cache</Text>
-        <Pressable onPress={onBack}>
-          <Text style={styles.backText}>← Indietro</Text>
-        </Pressable>
-      </View>
+      <Screen>
+        <View style={styles.pad}>
+          <BackLink label="Piano" onPress={onBack} />
+          <EmptyState
+            icon="✅"
+            title="Nessun quiz in cache"
+            body="Sincronizza di nuovo quando il piano ha un quiz generato."
+            actionLabel="Torna al piano"
+            onAction={onBack}
+          />
+        </View>
+      </Screen>
     );
   }
 
   if (finished) {
+    const tone =
+      score >= 80 ? "Ottimo lavoro!" : score >= 50 ? "Buon risultato" : "Ripassa e riprova";
     return (
-      <View style={styles.center}>
-        <Text style={styles.score}>{score}%</Text>
-        <Text style={styles.title}>Quiz completato</Text>
+      <Screen style={styles.centerPad} edges="all">
+        <View style={styles.scoreRing}>
+          <Text style={styles.score}>{score}%</Text>
+        </View>
+        <Text style={styles.doneTitle}>{tone}</Text>
         <Text style={styles.muted}>
-          Risultato salvato in locale e inviato al PC al prossimo sync.
+          Risultato salvato in locale · si invia al PC al prossimo sync.
         </Text>
-        <Pressable style={styles.primaryBtn} onPress={onBack}>
-          <Text style={styles.primaryBtnText}>Torna al piano</Text>
-        </Pressable>
-      </View>
+        <View style={{ width: "100%", marginTop: 20 }}>
+          <PrimaryButton label="Torna al piano" onPress={onBack} />
+        </View>
+      </Screen>
     );
   }
 
   return (
-    <ScrollView style={styles.container} contentContainerStyle={styles.pad}>
-      <Pressable onPress={onBack}>
-        <Text style={styles.backText}>← Piano</Text>
-      </Pressable>
-      <Text style={styles.progress}>
-        Domanda {qi + 1} / {domande.length}
-      </Text>
-      <Text style={styles.question}>{current.domanda}</Text>
-      {current.opzioni.map((op, i) => (
-        <Pressable key={i} style={styles.option} onPress={() => pick(i)}>
-          <Text style={styles.optionText}>{op}</Text>
-        </Pressable>
-      ))}
-    </ScrollView>
+    <Screen>
+      <ScrollView contentContainerStyle={styles.pad} showsVerticalScrollIndicator={false}>
+        <BackLink label="Piano" onPress={onBack} />
+
+        <View style={styles.topMeta}>
+          <Text style={styles.progress}>
+            Domanda {qi + 1} di {domande.length}
+          </Text>
+          <Text style={styles.pct}>
+            {Math.round((qi / domande.length) * 100)}%
+          </Text>
+        </View>
+        <ProgressBar value={qi} max={domande.length} height={8} />
+
+        <View style={styles.questionCard}>
+          <Text style={styles.question}>{current.domanda}</Text>
+        </View>
+
+        {current.opzioni.map((op, i) => {
+          const selected = picked === i;
+          return (
+            <Pressable
+              key={i}
+              style={[styles.option, selected && styles.optionSelected]}
+              onPress={() => pick(i)}
+            >
+              <View style={[styles.letter, selected && styles.letterOn]}>
+                <Text style={[styles.letterText, selected && styles.letterTextOn]}>
+                  {LETTERS[i] || String(i + 1)}
+                </Text>
+              </View>
+              <Text style={styles.optionText}>{op}</Text>
+            </Pressable>
+          );
+        })}
+      </ScrollView>
+    </Screen>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.bg },
-  pad: { padding: 20, paddingTop: 56, paddingBottom: 40 },
-  center: {
-    flex: 1,
+  pad: { paddingHorizontal: space.xl, paddingBottom: 48 },
+  center: { alignItems: "center", justifyContent: "center" },
+  centerPad: {
     alignItems: "center",
     justifyContent: "center",
-    backgroundColor: colors.bg,
-    padding: 24,
+    paddingHorizontal: 28,
   },
-  backText: { color: colors.emerald, fontWeight: "600", marginBottom: 16 },
-  progress: { fontSize: 13, color: colors.textMuted, fontWeight: "600" },
+  topMeta: {
+    flexDirection: "row",
+    justifyContent: "space-between",
+    marginBottom: 8,
+  },
+  progress: { fontSize: 13, color: colors.textMuted, fontWeight: "700" },
+  pct: { fontSize: 13, color: colors.emerald, fontWeight: "800" },
+  questionCard: {
+    marginTop: 18,
+    marginBottom: 16,
+    backgroundColor: colors.bgCard,
+    borderRadius: radius.xl,
+    padding: 20,
+    borderWidth: 1,
+    borderColor: colors.borderSoft,
+    ...shadow.card,
+  },
   question: {
-    marginTop: 12,
-    fontSize: 20,
-    fontWeight: "700",
+    fontSize: 19,
+    fontWeight: "800",
     color: colors.text,
     lineHeight: 28,
-    marginBottom: 20,
+    letterSpacing: -0.2,
   },
   option: {
+    flexDirection: "row",
+    alignItems: "center",
+    gap: 12,
     backgroundColor: colors.bgCard,
-    borderWidth: 1,
-    borderColor: colors.border,
-    borderRadius: 14,
-    padding: 16,
+    borderWidth: 1.5,
+    borderColor: colors.borderSoft,
+    borderRadius: radius.lg,
+    padding: 14,
     marginBottom: 10,
   },
-  optionText: { fontSize: 15, color: colors.text, lineHeight: 22 },
-  title: {
-    fontSize: 20,
-    fontWeight: "700",
+  optionSelected: {
+    borderColor: colors.emerald,
+    backgroundColor: colors.emeraldMuted,
+  },
+  letter: {
+    width: 34,
+    height: 34,
+    borderRadius: 12,
+    backgroundColor: colors.bgElevated,
+    alignItems: "center",
+    justifyContent: "center",
+  },
+  letterOn: { backgroundColor: colors.emerald },
+  letterText: { fontWeight: "800", color: colors.textMuted, fontSize: 13 },
+  letterTextOn: { color: "#fff" },
+  optionText: {
+    flex: 1,
+    fontSize: 15,
     color: colors.text,
-    marginBottom: 8,
-    textAlign: "center",
+    lineHeight: 22,
+    fontWeight: "500",
   },
   muted: {
     color: colors.textMuted,
     textAlign: "center",
-    marginBottom: 20,
+    marginTop: 8,
     lineHeight: 20,
   },
+  scoreRing: {
+    width: 140,
+    height: 140,
+    borderRadius: 70,
+    backgroundColor: colors.emeraldSoft,
+    alignItems: "center",
+    justifyContent: "center",
+    marginBottom: 16,
+    borderWidth: 6,
+    borderColor: colors.emerald,
+  },
   score: {
-    fontSize: 56,
+    fontSize: 40,
+    fontWeight: "900",
+    color: colors.emeraldDeep,
+  },
+  doneTitle: {
+    fontSize: 22,
     fontWeight: "800",
-    color: colors.emerald,
-    marginBottom: 8,
+    color: colors.text,
+    textAlign: "center",
   },
-  primaryBtn: {
-    backgroundColor: colors.emerald,
-    borderRadius: 14,
-    paddingVertical: 14,
-    paddingHorizontal: 24,
-  },
-  primaryBtnText: { color: "#fff", fontWeight: "700" },
 });
