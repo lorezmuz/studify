@@ -1,0 +1,93 @@
+{
+  "id": "latino-biennio",
+  "title": "Latino 1ª e 2ª superiore",
+  "subject": "italiano",
+  "level": "superiore",
+  "description": "Mappa del biennio: morfologia e sintassi base. Ogni unità è uno studio di 20-40 minuti.",
+  "units": [
+    {
+      "id": "lat-1a-decl",
+      "title": "1ª declinazione (rosa, -ae)",
+      "order": 1,
+      "topics": ["declinazione", "casi", "rosa"],
+      "goal": "Declinare un nome in -a e riconoscerne i casi in frase"
+    },
+    {
+      "id": "lat-2a-decl",
+      "title": "2ª declinazione (lupus, -i / bellum, -i)",
+      "order": 2,
+      "topics": ["declinazione", "maschili", "neutri"],
+      "goal": "Distinguere maschili in -us e neutri in -um"
+    },
+    {
+      "id": "lat-agg-1",
+      "title": "Aggettivi 1ª classe (bonus, -a, -um)",
+      "order": 3,
+      "topics": ["aggettivi", "accordo"],
+      "goal": "Accordare aggettivo e nome in genere, numero, caso"
+    },
+    {
+      "id": "lat-pres-1",
+      "title": "Presente indicativo 1ª coniugazione (amo)",
+      "order": 4,
+      "topics": ["verbi", "presente"],
+      "goal": "Coniugare amo e riconoscere persona/numero"
+    },
+    {
+      "id": "lat-pres-2",
+      "title": "Presente 2ª/3ª/4ª coniugazione (sum)",
+      "order": 5,
+      "topics": ["verbi", "sum"],
+      "goal": "Coniugare sum e i presenti regolari base"
+    },
+    {
+      "id": "lat-3a-decl",
+      "title": "3ª declinazione (introduzione)",
+      "order": 6,
+      "topics": ["declinazione", "imparisillabi"],
+      "goal": "Capire tema e genitivo della 3ª"
+    },
+    {
+      "id": "lat-pronomi-is",
+      "title": "Pronome is, ea, id",
+      "order": 7,
+      "topics": ["pronomi"],
+      "goal": "Tradurre e declinare is/ea/id nei casi principali"
+    },
+    {
+      "id": "lat-perfetto",
+      "title": "Perfetto indicativo (cenni)",
+      "order": 8,
+      "topics": ["verbi", "perfetto"],
+      "goal": "Riconoscere il tema del perfetto e tradurre al passato"
+    },
+    {
+      "id": "lat-complementi",
+      "title": "Complementi base (ablativo, dativo, genitivo)",
+      "order": 9,
+      "topics": ["sintassi", "complementi"],
+      "goal": "Collegare caso e funzione (di, a, con, da, in…)"
+    },
+    {
+      "id": "lat-infinitive",
+      "title": "Proposizione infinitiva (introduzione)",
+      "order": 10,
+      "topics": ["sintassi", "infinitiva"],
+      "goal": "Riconoscere Acc. + infinito e tradurre"
+    },
+    {
+      "id": "lat-cum",
+      "title": "Cum + indicativo / + congiuntivo (cenni)",
+      "order": 11,
+      "topics": ["sintassi", "cum"],
+      "goal": "Capire i valori principali di cum"
+    },
+    {
+      "id": "lat-versione",
+      "title": "Metodo di traduzione della versione",
+      "order": 12,
+      "topics": ["traduzione", "metodo"],
+      "goal": "Ordine: verbo → soggetto → oggetti → resto"
+    }
+  ]
+}

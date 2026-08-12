@@ -1,26 +1,196 @@
 @import "tailwindcss";
 
 :root {
-  --background: #ffffff;
-  --foreground: #171717;
+  --background: #f6f8f5;
+  --foreground: #18181b;
+  --card: #ffffff;
+  --accent: #059669;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-outfit);
   --font-mono: var(--font-geist-mono);
 }
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
+    --background: #09090b;
+    --foreground: #f4f4f5;
+    --card: #18181b;
   }
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-outfit), system-ui, sans-serif;
+}
+
+* {
+  border-color: color-mix(in oklab, var(--foreground) 12%, transparent);
+}
+
+::selection {
+  background: color-mix(in oklab, #10b981 35%, white);
+}
+
+/* ---- Riassunto studio (HTML da marked + KaTeX) ---- */
+.study-md h1 {
+  margin: 0.25rem 0 1rem;
+  font-size: 1.5rem;
+  font-weight: 600;
+  letter-spacing: -0.02em;
+  color: #18181b;
+}
+.study-md h2 {
+  margin: 2rem 0 0.75rem;
+  padding-bottom: 0.4rem;
+  border-bottom: 1px solid #f4f4f5;
+  font-size: 1.25rem;
+  font-weight: 600;
+  color: #18181b;
+}
+.study-md h2:first-child {
+  margin-top: 0;
+}
+.study-md h3 {
+  margin: 1.5rem 0 0.5rem;
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #18181b;
+}
+.study-md h4 {
+  margin: 1.1rem 0 0.4rem;
+  font-size: 1rem;
+  font-weight: 600;
+  color: #27272a;
+}
+.study-md p {
+  margin: 0 0 1rem;
+  line-height: 1.75;
+}
+.study-md strong {
+  font-weight: 600;
+  color: #18181b;
+}
+.study-md ul,
+.study-md ol {
+  margin: 0 0 1rem;
+  padding-left: 1.35rem;
+}
+.study-md li {
+  margin: 0.35rem 0;
+  line-height: 1.7;
+}
+.study-md ul {
+  list-style: disc;
+}
+.study-md ol {
+  list-style: decimal;
+}
+.study-md hr {
+  margin: 2rem 0;
+  border: 0;
+  border-top: 1px solid #e4e4e7;
+}
+.study-md blockquote {
+  margin: 1rem 0;
+  padding: 0.5rem 1rem;
+  border-left: 4px solid color-mix(in oklab, #10b981 55%, transparent);
+  background: color-mix(in oklab, #10b981 8%, transparent);
+}
+.study-md table {
+  width: 100%;
+  min-width: 28rem;
+  border-collapse: collapse;
+  font-size: 0.9rem;
+  text-align: left;
+}
+.study-md .table-wrap,
+.study-md table {
+  margin: 1.1rem 0;
+}
+.study-md th,
+.study-md td {
+  padding: 0.55rem 0.75rem;
+  border-bottom: 1px solid #f4f4f5;
+  vertical-align: top;
+}
+.study-md th {
+  font-weight: 600;
+  background: #fafafa;
+  color: #18181b;
+}
+.study-md thead th {
+  border-bottom: 1px solid #e4e4e7;
+}
+
+/* KaTeX */
+.study-md .katex {
+  font-size: 1.08em;
+  color: inherit;
+  line-height: 1.35;
+}
+.study-md .katex-inline {
+  display: inline-block;
+  margin: 0 0.12em;
+  vertical-align: middle;
+}
+.study-md .katex-block {
+  display: block;
+  margin: 1.25rem 0;
+  padding: 0.85rem 1rem;
+  overflow-x: auto;
+  text-align: center;
+  border-radius: 1rem;
+  border: 1px solid color-mix(in oklab, #10b981 14%, transparent);
+  background: color-mix(in oklab, #10b981 7%, transparent);
+}
+.study-md .katex-display {
+  margin: 0;
+  text-align: center;
+}
+.study-md .math-fallback {
+  font-family: ui-monospace, monospace;
+  font-size: 0.92em;
+  color: #b45309;
+  background: #fffbeb;
+  padding: 0.12em 0.4em;
+  border-radius: 0.35em;
+}
+
+@media (prefers-color-scheme: dark) {
+  .study-md h1,
+  .study-md h2,
+  .study-md h3,
+  .study-md h4,
+  .study-md strong,
+  .study-md th {
+    color: #fafafa;
+  }
+  .study-md th {
+    background: #27272a;
+  }
+  .study-md th,
+  .study-md td {
+    border-bottom-color: #3f3f46;
+  }
+  .study-md hr {
+    border-top-color: #3f3f46;
+  }
+  .study-md h2 {
+    border-bottom-color: #3f3f46;
+  }
+}
+
+@media print {
+  .study-md .katex {
+    color: #000;
+  }
+  .study-md .katex-block {
+    background: transparent;
+    border: none;
+  }
 }
