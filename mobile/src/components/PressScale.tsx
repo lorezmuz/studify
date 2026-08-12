@@ -4,6 +4,7 @@ import {
   Pressable,
   type StyleProp,
   type ViewStyle,
+  StyleSheet,
 } from "react-native";
 
 type Props = {
@@ -25,6 +26,7 @@ export function PressScale({
   const scale = useRef(new Animated.Value(1)).current;
 
   function down() {
+    if (disabled) return;
     Animated.spring(scale, {
       toValue: scaleTo,
       useNativeDriver: true,
@@ -41,14 +43,27 @@ export function PressScale({
     }).start();
   }
 
+  const flat = StyleSheet.flatten(style) || {};
+  const stretch =
+    flat.flex === 1 || flat.alignSelf === "stretch"
+      ? ({ flex: flat.flex === 1 ? 1 : undefined } as ViewStyle)
+      : undefined;
+
   return (
     <Pressable
       disabled={disabled}
-      onPress={onPress}
+      onPress={disabled ? undefined : onPress}
       onPressIn={down}
       onPressOut={up}
+      style={stretch}
     >
-      <Animated.View style={[style, { transform: [{ scale }] }]}>
+      <Animated.View
+        style={[
+          style,
+          { transform: [{ scale }] },
+          disabled ? { opacity: 0.55 } : null,
+        ]}
+      >
         {children}
       </Animated.View>
     </Pressable>

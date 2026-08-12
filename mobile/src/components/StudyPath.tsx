@@ -149,9 +149,7 @@ export function StudyPath({
               fill="none"
               strokeLinecap="round"
               strokeLinejoin="round"
-              opacity={0.9}
-              strokeDasharray={`${Math.max(1, height * 1.4)}`}
-              strokeDashoffset={`${Math.max(0, height * 1.4 * (1 - progress))}`}
+              opacity={0.35 + progress * 0.55}
             />
           ) : null}
         </Svg>

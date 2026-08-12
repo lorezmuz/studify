@@ -1,185 +1,218 @@
 /**
- * Suoni UI (tono sintetico WAV base64) + haptic.
- * Stile allineato al web: tap, unlock, complete, xp, error, chest.
+ * Suoni UI + haptic (fail-safe: mai crashare l'app).
+ * WAV sintetici piccoli, base64 senza spread di array enormi.
  */
 import { Audio } from "expo-av";
 import * as Haptics from "expo-haptics";
 
-let unlocked = false;
+let audioReady = false;
+const soundCache = new Map<string, Audio.Sound>();
 
 async function ensureAudio() {
-  if (unlocked) return;
+  if (audioReady) return;
   try {
     await Audio.setAudioModeAsync({
       playsInSilentModeIOS: true,
       shouldDuckAndroid: true,
       playThroughEarpieceAndroid: false,
     });
-    unlocked = true;
+    audioReady = true;
   } catch {
     /* ignore */
   }
 }
 
-/** Genera un WAV mono 16-bit PCM a 22050 Hz come base64. */
-function toneWavBase64(
-  freqs: number[],
-  durationSec: number,
-  volume = 0.25
-): string {
-  const sampleRate = 22050;
-  const n = Math.floor(sampleRate * durationSec);
-  const data = new Int16Array(n);
-  for (let i = 0; i < n; i++) {
-    const t = i / sampleRate;
-    const env = Math.min(1, t * 40) * Math.exp(-t * 4.5);
-    let s = 0;
-    for (const f of freqs) {
-      s += Math.sin(2 * Math.PI * f * t);
-    }
-    s = (s / freqs.length) * env * volume;
-    data[i] = Math.max(-32767, Math.min(32767, Math.floor(s * 32767)));
-  }
-  const dataBytes = data.byteLength;
-  const buffer = new ArrayBuffer(44 + dataBytes);
-  const view = new DataView(buffer);
-  const writeStr = (off: number, str: string) => {
-    for (let i = 0; i < str.length; i++) view.setUint8(off + i, str.charCodeAt(i));
-  };
-  writeStr(0, "RIFF");
-  view.setUint32(4, 36 + dataBytes, true);
-  writeStr(8, "WAVE");
-  writeStr(12, "fmt ");
-  view.setUint32(16, 16, true);
-  view.setUint16(20, 1, true);
-  view.setUint16(22, 1, true);
-  view.setUint32(24, sampleRate, true);
-  view.setUint32(28, sampleRate * 2, true);
-  view.setUint16(32, 2, true);
-  view.setUint16(34, 16, true);
-  writeStr(36, "data");
-  view.setUint32(40, dataBytes, true);
-  new Uint8Array(buffer, 44).set(new Uint8Array(data.buffer));
-
-  // base64
-  const bytes = new Uint8Array(buffer);
-  let binary = "";
-  const chunk = 0x8000;
-  for (let i = 0; i < bytes.length; i += chunk) {
-    binary += String.fromCharCode(...bytes.subarray(i, i + chunk));
-  }
-  // btoa may not exist in RN — use manual base64
-  return base64FromBinary(binary);
-}
-
 const B64 =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
-function base64FromBinary(bin: string): string {
+/** Base64 da Uint8Array senza spread (evita stack overflow). */
+function bytesToBase64(bytes: Uint8Array): string {
   let out = "";
-  let i = 0;
-  for (; i + 2 < bin.length; i += 3) {
-    const n =
-      (bin.charCodeAt(i) << 16) |
-      (bin.charCodeAt(i + 1) << 8) |
-      bin.charCodeAt(i + 2);
-    out +=
-      B64[(n >> 18) & 63] +
-      B64[(n >> 12) & 63] +
-      B64[(n >> 6) & 63] +
-      B64[n & 63];
-  }
-  if (i < bin.length) {
-    const a = bin.charCodeAt(i);
-    const b = i + 1 < bin.length ? bin.charCodeAt(i + 1) : 0;
-    const n = (a << 16) | (b << 8);
-    out += B64[(n >> 18) & 63] + B64[(n >> 12) & 63];
-    out += i + 1 < bin.length ? B64[(n >> 6) & 63] : "=";
-    out += "=";
+  const len = bytes.length;
+  for (let i = 0; i < len; i += 3) {
+    const a = bytes[i];
+    const b = i + 1 < len ? bytes[i + 1] : 0;
+    const c = i + 2 < len ? bytes[i + 2] : 0;
+    const n = (a << 16) | (b << 8) | c;
+    out += B64[(n >> 18) & 63];
+    out += B64[(n >> 12) & 63];
+    out += i + 1 < len ? B64[(n >> 6) & 63] : "=";
+    out += i + 2 < len ? B64[n & 63] : "=";
   }
   return out;
 }
 
-const cache = new Map<string, string>();
-
-function uriFor(key: string, factory: () => string) {
-  let b64 = cache.get(key);
-  if (!b64) {
-    b64 = factory();
-    cache.set(key, b64);
+/** WAV mono 16-bit 16kHz — durata max ~0.35s */
+function toneWavBase64(
+  freqs: number[],
+  durationSec: number,
+  volume = 0.22
+): string {
+  const sampleRate = 16000;
+  const n = Math.min(Math.floor(sampleRate * durationSec), sampleRate);
+  const pcm = new Int16Array(n);
+  for (let i = 0; i < n; i++) {
+    const t = i / sampleRate;
+    const env = Math.min(1, t * 50) * Math.exp(-t * 5);
+    let s = 0;
+    for (let f = 0; f < freqs.length; f++) {
+      s += Math.sin(2 * Math.PI * freqs[f] * t);
+    }
+    s = (s / freqs.length) * env * volume;
+    pcm[i] = (s * 32767) | 0;
   }
-  return `data:audio/wav;base64,${b64}`;
+
+  const dataBytes = pcm.byteLength;
+  const buf = new ArrayBuffer(44 + dataBytes);
+  const view = new DataView(buf);
+  const u8 = new Uint8Array(buf);
+
+  const w = (off: number, str: string) => {
+    for (let i = 0; i < str.length; i++) u8[off + i] = str.charCodeAt(i);
+  };
+  w(0, "RIFF");
+  view.setUint32(4, 36 + dataBytes, true);
+  w(8, "WAVE");
+  w(12, "fmt ");
+  view.setUint32(16, 16, true);
+  view.setUint16(20, 1, true); // PCM
+  view.setUint16(22, 1, true); // mono
+  view.setUint32(24, sampleRate, true);
+  view.setUint32(28, sampleRate * 2, true);
+  view.setUint16(32, 2, true);
+  view.setUint16(34, 16, true);
+  w(36, "data");
+  view.setUint32(40, dataBytes, true);
+  u8.set(new Uint8Array(pcm.buffer), 44);
+
+  return bytesToBase64(u8);
+}
+
+const uriCache = new Map<string, string>();
+
+function wavUri(key: string, factory: () => string): string {
+  let uri = uriCache.get(key);
+  if (!uri) {
+    try {
+      uri = `data:audio/wav;base64,${factory()}`;
+      uriCache.set(key, uri);
+    } catch {
+      uri = "";
+    }
+  }
+  return uri;
 }
 
 async function playUri(uri: string) {
+  if (!uri) return;
   try {
     await ensureAudio();
-    const { sound } = await Audio.Sound.createAsync(
+    // riusa un sound se già in cache e scaricato
+    let sound = soundCache.get(uri);
+    if (sound) {
+      try {
+        await sound.replayAsync();
+        return;
+      } catch {
+        try {
+          await sound.unloadAsync();
+        } catch {
+          /* */
+        }
+        soundCache.delete(uri);
+      }
+    }
+    const created = await Audio.Sound.createAsync(
       { uri },
-      { shouldPlay: true, volume: 0.85 }
+      { shouldPlay: true, volume: 0.8 }
     );
+    sound = created.sound;
+    soundCache.set(uri, sound);
     sound.setOnPlaybackStatusUpdate((st) => {
-      if (st.isLoaded && st.didJustFinish) {
-        void sound.unloadAsync();
+      if (!st.isLoaded) return;
+      if (st.didJustFinish) {
+        // tieni in cache per replay, non unload
       }
     });
   } catch {
-    /* silent fail */
+    /* audio non critico */
+  }
+}
+
+async function hap(
+  kind: "light" | "medium" | "success" | "error" | "select"
+) {
+  try {
+    if (kind === "light") {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+    } else if (kind === "medium") {
+      await Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+    } else if (kind === "success") {
+      await Haptics.notificationAsync(
+        Haptics.NotificationFeedbackType.Success
+      );
+    } else if (kind === "error") {
+      await Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+    } else {
+      await Haptics.selectionAsync();
+    }
+  } catch {
+    /* no haptics device */
   }
 }
 
 export async function playTap() {
-  void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Light);
+  void hap("light");
   await playUri(
-    uriFor("tap", () => toneWavBase64([520], 0.07, 0.22))
+    wavUri("tap", () => toneWavBase64([520], 0.06, 0.2))
   );
 }
 
 export async function playUnlock() {
-  void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  void hap("success");
   await playUri(
-    uriFor("unlock", () => toneWavBase64([392, 523, 659], 0.28, 0.2))
+    wavUri("unlock", () => toneWavBase64([392, 523, 659], 0.22, 0.18))
   );
 }
 
 export async function playComplete() {
-  void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  void hap("success");
   await playUri(
-    uriFor("complete", () => toneWavBase64([523, 659, 784], 0.32, 0.22))
+    wavUri("complete", () => toneWavBase64([523, 659, 784], 0.25, 0.2))
   );
 }
 
 export async function playXp() {
-  void Haptics.impactAsync(Haptics.ImpactFeedbackStyle.Medium);
+  void hap("medium");
   await playUri(
-    uriFor("xp", () => toneWavBase64([880, 1175], 0.18, 0.18))
+    wavUri("xp", () => toneWavBase64([880, 1175], 0.14, 0.16))
   );
 }
 
 export async function playError() {
-  void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error);
+  void hap("error");
   await playUri(
-    uriFor("error", () => toneWavBase64([220, 180], 0.22, 0.2))
+    wavUri("error", () => toneWavBase64([220, 180], 0.16, 0.18))
   );
 }
 
 export async function playChest() {
-  void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  void hap("success");
   await playUri(
-    uriFor("chest", () => toneWavBase64([330, 440, 554, 740], 0.4, 0.2))
+    wavUri("chest", () => toneWavBase64([330, 440, 554, 740], 0.3, 0.18))
   );
 }
 
 export async function playFlip() {
-  void Haptics.selectionAsync();
+  void hap("select");
   await playUri(
-    uriFor("flip", () => toneWavBase64([640, 480], 0.09, 0.16))
+    wavUri("flip", () => toneWavBase64([640, 480], 0.08, 0.14))
   );
 }
 
 export async function playCorrect() {
-  void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success);
+  void hap("success");
   await playUri(
-    uriFor("ok", () => toneWavBase64([660, 880], 0.16, 0.2))
+    wavUri("ok", () => toneWavBase64([660, 880], 0.12, 0.18))
   );
 }
